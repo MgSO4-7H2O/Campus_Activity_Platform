@@ -1,0 +1,221 @@
+// Prisma schema（骨架版）
+//
+// 说明：
+// - 当前模型用于“搭框架 + 留位置”，字段与关系会在后续模块实现中逐步细化。
+// - 课程作业阶段建议优先保证：实体齐全、状态可表达、审核流转可留痕。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  ORGANIZER
+  REVIEWER_L1
+  REVIEWER_L2
+  SYS_ADMIN
+}
+
+enum ActivityApplicationStatus {
+  DRAFT
+  SUBMITTED
+  APPROVING
+  NEED_MORE
+  REJECTED
+  APPROVED
+  ARCHIVED
+}
+
+enum SignupStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELED
+}
+
+enum CheckinStatus {
+  CHECKED_IN
+  ABSENT
+  LATE
+  LEFT_EARLY
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique @db.VarChar(50)
+  password  String   @db.VarChar(255)
+  realName  String   @map("real_name") @db.VarChar(50)
+  phone     String?  @db.VarChar(20)
+  email     String?  @db.VarChar(100)
+  role      UserRole
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organizations Organization[] @relation("OrgMembers")
+
+  @@map("users")
+}
+
+model Organization {
+  id           String   @id @default(uuid())
+  orgCode      String   @unique @map("org_code") @db.VarChar(30)
+  name         String   @db.VarChar(100)
+  parentOrgId  String?  @map("parent_org_id")
+  parentOrg    Organization? @relation("OrgTree", fields: [parentOrgId], references: [id])
+  childrenOrgs Organization[] @relation("OrgTree")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  members User[] @relation("OrgMembers")
+  approvalChains ApprovalChain[]
+  activityApplications ActivityApplication[]
+
+  @@map("organizations")
+}
+
+model ApprovalChain {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  nodes        ApprovalChainNode[]
+
+  @@index([organizationId])
+  @@map("approval_chains")
+}
+
+model ApprovalChainNode {
+  id            String   @id @default(uuid())
+  chainId       String   @map("chain_id")
+  level         Int
+  reviewerUserId String  @map("reviewer_user_id")
+
+  chain   ApprovalChain @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  reviewer User @relation(fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@unique([chainId, level])
+  @@index([reviewerUserId])
+  @@map("approval_chain_nodes")
+}
+
+model ActivityApplication {
+  id            String   @id @default(uuid())
+  applicantId   String   @map("applicant_id")
+  organizationId String  @map("organization_id")
+  title         String   @db.VarChar(200)
+  description   String?  @db.Text
+  status        ActivityApplicationStatus @default(DRAFT)
+  currentLevel  Int?     @map("current_level")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  applicant     User         @relation(fields: [applicantId], references: [id], onDelete: Restrict)
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  attachments   ApplicationAttachment[]
+  approvalRecords ApprovalRecord[]
+  recruitments  Recruitment[]
+
+  @@index([organizationId])
+  @@index([applicantId])
+  @@index([status])
+  @@map("activity_applications")
+}
+
+model ApplicationAttachment {
+  id                 String   @id @default(uuid())
+  applicationId      String   @map("application_id")
+  type               String   @db.VarChar(50)
+  fileUrl            String   @map("file_url") @db.VarChar(500)
+  uploadedAt         DateTime @default(now()) @map("uploaded_at")
+
+  application ActivityApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("application_attachments")
+}
+
+model ApprovalRecord {
+  id            String   @id @default(uuid())
+  applicationId String   @map("application_id")
+  reviewerId    String   @map("reviewer_id")
+  level         Int
+  result        String   @db.VarChar(30)
+  comment       String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  application ActivityApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  reviewer    User               @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@index([applicationId])
+  @@index([reviewerId])
+  @@map("approval_records")
+}
+
+model Recruitment {
+  id            String   @id @default(uuid())
+  applicationId String   @map("application_id")
+  title         String   @db.VarChar(200)
+  quota         Int?
+  signupDeadline DateTime? @map("signup_deadline")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  application ActivityApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  signups     Signup[]
+
+  @@index([applicationId])
+  @@map("recruitments")
+}
+
+model Signup {
+  id            String   @id @default(uuid())
+  recruitmentId String   @map("recruitment_id")
+  studentId     String   @map("student_id")
+  status        SignupStatus @default(PENDING)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  recruitment Recruitment @relation(fields: [recruitmentId], references: [id], onDelete: Cascade)
+  student     User        @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([recruitmentId, studentId])
+  @@index([studentId])
+  @@map("signups")
+}
+
+model CheckinRecord {
+  id            String   @id @default(uuid())
+  applicationId String   @map("application_id")
+  studentId     String   @map("student_id")
+  status        CheckinStatus @default(CHECKED_IN)
+  checkedInAt   DateTime @default(now()) @map("checked_in_at")
+
+  application ActivityApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  student     User               @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([applicationId, studentId])
+  @@index([studentId])
+  @@map("checkin_records")
+}
+
+model Announcement {
+  id          String   @id @default(uuid())
+  title       String   @db.VarChar(200)
+  content     String   @db.Text
+  type        String   @db.VarChar(30)
+  isPinned    Boolean  @default(false) @map("is_pinned")
+  publishedAt DateTime @default(now()) @map("published_at")
+  publisherId String?  @map("publisher_id")
+
+  publisher User? @relation(fields: [publisherId], references: [id], onDelete: SetNull)
+
+  @@index([publishedAt])
+  @@map("announcements")
+}
+

@@ -1,0 +1,93 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: campus
+      POSTGRES_PASSWORD: campus_dev_2026
+      POSTGRES_DB: campus
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U campus -d campus']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cap-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cap-network
+
+  adminer:
+    image: adminer:latest
+    ports:
+      - '8080:8080'
+    depends_on:
+      - postgres
+    networks:
+      - cap-network
+
+  # 可选：完全容器化运行（需要 `--profile full`）
+  server:
+    profiles: ['full']
+    image: node:22-alpine
+    working_dir: /app
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      CORS_ORIGIN: http://localhost:5173
+      DATABASE_URL: postgresql://campus:campus_dev_2026@postgres:5432/campus?schema=public
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.pnpm-store
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "corepack enable
+      && pnpm install
+      && pnpm --filter @campus-activity/server db:generate
+      && pnpm --filter @campus-activity/server db:push
+      && pnpm --filter @campus-activity/server dev"
+    networks:
+      - cap-network
+
+  web:
+    profiles: ['full']
+    image: node:22-alpine
+    working_dir: /app
+    environment:
+      VITE_API_URL: http://localhost:3000/api/v1
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.pnpm-store
+    ports:
+      - '5173:5173'
+    depends_on:
+      - server
+    command: >
+      sh -c "corepack enable
+      && pnpm install
+      && pnpm --filter @campus-activity/web dev --host 0.0.0.0"
+    networks:
+      - cap-network
+
+networks:
+  cap-network:
+    name: cap-network
+
