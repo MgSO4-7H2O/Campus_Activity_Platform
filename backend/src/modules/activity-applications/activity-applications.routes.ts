@@ -1,10 +1,10 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
+
+const router: ExpressRouter = Router()
 
 import { fail } from '../../shared/utils/response.js'
 
-const router = Router()
-
-router.all('*', (_req, res) => {
+router.use((_req, res) => {
   res.status(501).json(fail('NOT_IMPLEMENTED', 'activity-applications 模块尚未实现'))
 })
 

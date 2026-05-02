@@ -1,8 +1,8 @@
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
+
+const router: ExpressRouter = Router()
 
 import { ok } from '../../shared/utils/response.js'
-
-const router = Router()
 
 /**
  * @swagger

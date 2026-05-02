@@ -1,4 +1,5 @@
 export const UserRole = {
+  BASIC_USER: 'BASIC_USER',
   STUDENT: 'STUDENT',
   ORGANIZER: 'ORGANIZER',
   REVIEWER_L1: 'REVIEWER_L1',
@@ -7,4 +8,3 @@ export const UserRole = {
 } as const
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole]
-

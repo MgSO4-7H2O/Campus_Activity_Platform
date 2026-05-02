@@ -1,8 +1,13 @@
-// Prisma schema（骨架版）
+// Prisma schema
+//
+// 校园活动管理与报名签到平台数据库模型
 //
 // 说明：
-// - 当前模型用于“搭框架 + 留位置”，字段与关系会在后续模块实现中逐步细化。
-// - 课程作业阶段建议优先保证：实体齐全、状态可表达、审核流转可留痕。
+// 1. 本 schema 对齐当前定稿数据库设计。
+// 2. 数据库表名、字段名使用 snake_case，通过 @map / @@map 与 Prisma 字段名映射。
+// 3. 立项/结项审核链采用业务层动态推导，不再使用 approval_chains / approval_chain_nodes。
+// 4. pending_tasks.relatedResourceType + relatedResourceId 属于统一资源引用，不在数据库层做动态外键。
+// 5. REVIEWER 必须为 teacher、ORGANIZER/SYS_ADMIN 权限限制等规则由业务层校验。
 
 generator client {
   provider = "prisma-client-js"
@@ -13,127 +18,471 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  STUDENT
-  ORGANIZER
-  REVIEWER_L1
-  REVIEWER_L2
-  SYS_ADMIN
+/**
+ * 用户身份类型。
+ * 身份类型与权限角色分离：
+ * - student / teacher 存在 users.user_type
+ * - BASIC_USER / ORGANIZER / REVIEWER / SYS_ADMIN 存在 roles
+ */
+enum UserType {
+  STUDENT @map("student")
+  TEACHER @map("teacher")
+
+  @@map("user_type")
+}
+
+enum UserStatus {
+  ACTIVE @map("active")
+  BANNED @map("banned")
+
+  @@map("user_status")
+}
+
+/**
+ * 组织类型。
+ * CLUB / STUDENT_ORGANIZATION / ADMINISTRATION
+ */
+enum OrganizationType {
+  CLUB                 @map("club")
+  STUDENT_ORGANIZATION @map("student_organization")
+  ADMINISTRATION       @map("administration")
+
+  @@map("organization_type")
+}
+
+enum OrganizationStatus {
+  ACTIVE   @map("active")
+  INACTIVE @map("inactive")
+
+  @@map("organization_status")
 }
 
 enum ActivityApplicationStatus {
-  DRAFT
-  SUBMITTED
-  APPROVING
-  NEED_MORE
-  REJECTED
-  APPROVED
-  ARCHIVED
+  DRAFT     @map("draft")
+  SUBMITTED @map("submitted")
+  APPROVING @map("approving")
+  NEED_MORE @map("need_more")
+  REJECTED  @map("rejected")
+  APPROVED  @map("approved")
+  ARCHIVED  @map("archived")
+
+  @@map("activity_application_status")
+}
+
+enum ReviewResult {
+  APPROVED  @map("approved")
+  REJECTED  @map("rejected")
+  NEED_MORE @map("need_more")
+
+  @@map("review_result")
+}
+
+enum ActivityStatus {
+  PLANNED    @map("planned")
+  RECRUITING @map("recruiting")
+  ONGOING    @map("ongoing")
+  FINISHED   @map("finished")
+  CLOSED     @map("closed")
+
+  @@map("activity_status")
+}
+
+enum RecruitmentTargetUserType {
+  STUDENT @map("student")
+  TEACHER @map("teacher")
+  ALL     @map("all")
+
+  @@map("recruitment_target_user_type")
+}
+
+enum RecruitmentStatus {
+  DRAFT     @map("draft")
+  PUBLISHED @map("published")
+  CLOSED    @map("closed")
+
+  @@map("recruitment_status")
 }
 
 enum SignupStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  CANCELED
+  PENDING   @map("pending")
+  APPROVED  @map("approved")
+  REJECTED  @map("rejected")
+  CANCELLED @map("cancelled")
+
+  @@map("signup_status")
 }
 
-enum CheckinStatus {
-  CHECKED_IN
-  ABSENT
-  LATE
-  LEFT_EARLY
+enum CheckinMode {
+  QRCODE @map("qrcode")
+  CODE   @map("code")
+  MANUAL @map("manual")
+
+  @@map("checkin_mode")
 }
 
+enum CheckinSessionStatus {
+  PENDING @map("pending")
+  OPEN    @map("open")
+  CLOSED  @map("closed")
+
+  @@map("checkin_session_status")
+}
+
+enum CheckinRecordStatus {
+  CHECKED_IN @map("checked_in")
+  LATE       @map("late")
+
+  @@map("checkin_record_status")
+}
+
+enum ClosureApplicationStatus {
+  DRAFT     @map("draft")
+  SUBMITTED @map("submitted")
+  APPROVING @map("approving")
+  REJECTED  @map("rejected")
+  APPROVED  @map("approved")
+
+  @@map("closure_application_status")
+}
+
+enum RoleApplicationStatus {
+  DRAFT     @map("draft")
+  SUBMITTED @map("submitted")
+  APPROVING @map("approving")
+  REJECTED  @map("rejected")
+  APPROVED  @map("approved")
+
+  @@map("role_application_status")
+}
+
+enum PendingTaskType {
+  APPLICATION_REVIEW      @map("application_review")
+  CLOSURE_REVIEW          @map("closure_review")
+  SIGNUP_REVIEW           @map("signup_review")
+  ROLE_APPLICATION_REVIEW @map("role_application_review")
+
+  @@map("pending_task_type")
+}
+
+enum RelatedResourceType {
+  ACTIVITY_APPLICATION @map("activity_application")
+  CLOSURE_APPLICATION  @map("closure_application")
+  RECRUITMENT_SIGNUP   @map("recruitment_signup")
+  ROLE_APPLICATION     @map("role_application")
+
+  @@map("related_resource_type")
+}
+
+enum PendingTaskStatus {
+  PENDING   @map("pending")
+  PROCESSED @map("processed")
+  CANCELLED @map("cancelled")
+
+  @@map("pending_task_status")
+}
+
+enum AnnouncementType {
+  NEWS               @map("news")
+  NOTICE             @map("notice")
+  RECRUITMENT_NOTICE @map("recruitment_notice")
+  SYSTEM_NOTICE      @map("system_notice")
+
+  @@map("announcement_type")
+}
+
+enum AnnouncementStatus {
+  DRAFT     @map("draft")
+  PUBLISHED @map("published")
+  ARCHIVED  @map("archived")
+
+  @@map("announcement_status")
+}
+
+enum NotificationTargetType {
+  ALL_USERS @map("all_users")
+  ROLE      @map("role")
+  ORG       @map("org")
+  USER      @map("user")
+
+  @@map("notification_target_type")
+}
+
+enum NotificationSourceType {
+  ACTIVITY_APPLICATION @map("activity_application")
+  CLOSURE_APPLICATION  @map("closure_application")
+  RECRUITMENT_SIGNUP   @map("recruitment_signup")
+  ACTIVITY             @map("activity")
+  ANNOUNCEMENT         @map("announcement")
+  ROLE_APPLICATION     @map("role_application")
+  SYSTEM               @map("system")
+
+  @@map("notification_source_type")
+}
+
+/**
+ * 用户主表。
+ * 存储所有可登录用户的公共信息。
+ */
 model User {
-  id        String   @id @default(uuid())
-  username  String   @unique @db.VarChar(50)
-  password  String   @db.VarChar(255)
-  realName  String   @map("real_name") @db.VarChar(50)
-  phone     String?  @db.VarChar(20)
-  email     String?  @db.VarChar(100)
-  role      UserRole
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String     @id @default(uuid()) @db.Uuid
+  username     String     @unique @db.VarChar(20)
+  realName     String     @map("real_name") @db.VarChar(50)
+  userType     UserType   @map("user_type")
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  email        String?    @unique @db.VarChar(100)
+  phone        String?    @unique @db.VarChar(20)
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?  @map("last_login_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
 
-  organizations Organization[] @relation("OrgMembers")
+  studentProfile StudentProfile?
+  teacherProfile TeacherProfile?
 
+  userRoles         UserRole[]
+  userOrganizations UserOrganization[]
+  systemLogs        SystemLog[]
+
+  activityApplicationsAsApplicant       ActivityApplication[] @relation("ActivityApplicationApplicant")
+  activityApplicationsAsCurrentReviewer ActivityApplication[] @relation("ActivityApplicationCurrentReviewer")
+  approvalRecordsAsReviewer             ApprovalRecord[]      @relation("ApprovalRecordReviewer")
+
+  activitiesAsOrganizer Activity[] @relation("ActivityOrganizer")
+
+  recruitmentSignups         RecruitmentSignup[] @relation("RecruitmentSignupUser")
+  reviewedRecruitmentSignups RecruitmentSignup[] @relation("RecruitmentSignupReviewer")
+
+  checkinSessionsCreated CheckinSession[] @relation("CheckinSessionCreator")
+  checkinRecords         CheckinRecord[]  @relation("CheckinRecordUser")
+
+  closureApplicationsAsApplicant ClosureApplication[]  @relation("ClosureApplicationApplicant")
+  closureReviewRecordsAsReviewer ClosureReviewRecord[] @relation("ClosureReviewRecordReviewer")
+
+  roleApplicationsAsApplicant RoleApplication[] @relation("RoleApplicationApplicant")
+  roleApplicationsAsReviewer  RoleApplication[] @relation("RoleApplicationReviewer")
+
+  assignedPendingTasks PendingTask[] @relation("PendingTaskAssignee")
+  createdPendingTasks  PendingTask[] @relation("PendingTaskCreator")
+
+  announcementsAsPublisher Announcement[]        @relation("AnnouncementPublisher")
+  notificationsAsCreator   Notification[]        @relation("NotificationCreator")
+  notificationReceipts     NotificationReceipt[]
+
+  @@index([userType])
+  @@index([status])
   @@map("users")
 }
 
+/**
+ * 学生扩展信息表。
+ */
+model StudentProfile {
+  userId    String  @id @map("user_id") @db.Uuid
+  college   String? @db.VarChar(100)
+  major     String? @db.VarChar(100)
+  grade     Int?
+  className String? @map("class_name") @db.VarChar(50)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("student_profiles")
+}
+
+/**
+ * 教师扩展信息表。
+ */
+model TeacherProfile {
+  userId         String  @id @map("user_id") @db.Uuid
+  departmentName String? @map("department_name") @db.VarChar(100)
+  jobTitle       String? @map("job_title") @db.VarChar(100)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("teacher_profiles")
+}
+
+/**
+ * 组织表。
+ * 用于表示社团、学生组织、学院团委、校级行政组织等。
+ */
 model Organization {
-  id           String   @id @default(uuid())
-  orgCode      String   @unique @map("org_code") @db.VarChar(30)
-  name         String   @db.VarChar(100)
-  parentOrgId  String?  @map("parent_org_id")
-  parentOrg    Organization? @relation("OrgTree", fields: [parentOrgId], references: [id])
-  childrenOrgs Organization[] @relation("OrgTree")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id          String             @id @default(uuid()) @db.Uuid
+  orgCode     String             @unique @map("org_code") @db.VarChar(30)
+  name        String             @db.VarChar(100)
+  type        OrganizationType
+  parentOrgId String?            @map("parent_org_id") @db.Uuid
+  status      OrganizationStatus @default(ACTIVE)
+  description String?            @db.Text
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
 
-  members User[] @relation("OrgMembers")
-  approvalChains ApprovalChain[]
-  activityApplications ActivityApplication[]
+  parentOrg Organization?  @relation("OrganizationTree", fields: [parentOrgId], references: [id], onDelete: SetNull)
+  childOrgs Organization[] @relation("OrganizationTree")
 
+  userOrganizations UserOrganization[]
+
+  activityApplications                  ActivityApplication[]
+  approvalRecordsAsReviewerOrganization ApprovalRecord[]      @relation("ApprovalRecordReviewerOrganization")
+
+  activities Activity[]
+
+  closureReviewRecordsAsReviewerOrganization ClosureReviewRecord[] @relation("ClosureReviewRecordReviewerOrganization")
+  roleApplications                           RoleApplication[]
+
+  @@index([parentOrgId])
+  @@index([type])
+  @@index([status])
   @@map("organizations")
 }
 
-model ApprovalChain {
-  id             String   @id @default(uuid())
-  organizationId String   @map("organization_id")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
+/**
+ * 角色表。
+ * 典型角色：BASIC_USER / ORGANIZER / REVIEWER / SYS_ADMIN。
+ */
+model Role {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique @db.VarChar(50)
+  code        String  @unique @db.VarChar(50)
+  description String? @db.Text
 
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+/**
+ * 权限表。
+ */
+model Permission {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @db.VarChar(100)
+  code        String  @unique @db.VarChar(100)
+  resource    String  @db.VarChar(50)
+  action      String  @db.VarChar(20)
+  description String? @db.Text
+
+  rolePermissions RolePermission[]
+
+  @@index([resource])
+  @@index([action])
+  @@map("permissions")
+}
+
+/**
+ * 用户角色关联表。
+ */
+model UserRole {
+  userId     String   @map("user_id") @db.Uuid
+  roleId     String   @map("role_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+/**
+ * 角色权限关联表。
+ */
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+/**
+ * 用户组织关联表。
+ * 当前主要用于记录 REVIEWER / ORGANIZER 归属组织。
+ */
+model UserOrganization {
+  userId         String   @map("user_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  assignedAt     DateTime @default(now()) @map("assigned_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  nodes        ApprovalChainNode[]
 
+  @@id([userId, organizationId])
   @@index([organizationId])
-  @@map("approval_chains")
+  @@map("user_organizations")
 }
 
-model ApprovalChainNode {
-  id            String   @id @default(uuid())
-  chainId       String   @map("chain_id")
-  level         Int
-  reviewerUserId String  @map("reviewer_user_id")
+/**
+ * 系统日志表。
+ */
+model SystemLog {
+  id           BigInt   @id @default(autoincrement())
+  userId       String?  @map("user_id") @db.Uuid
+  action       String   @db.VarChar(100)
+  resourceType String?  @map("resource_type") @db.VarChar(50)
+  resourceId   String?  @map("resource_id") @db.Uuid
+  ipAddress    String?  @map("ip_address") @db.Inet
+  details      Json?    @db.JsonB
+  createdAt    DateTime @default(now()) @map("created_at")
 
-  chain   ApprovalChain @relation(fields: [chainId], references: [id], onDelete: Cascade)
-  reviewer User @relation(fields: [reviewerUserId], references: [id], onDelete: Restrict)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  @@unique([chainId, level])
-  @@index([reviewerUserId])
-  @@map("approval_chain_nodes")
+  @@index([userId])
+  @@index([createdAt])
+  @@map("system_logs")
 }
 
+/**
+ * 活动立项申请表。
+ * ORGANIZER 以某个组织名义发起活动立项申请。
+ */
 model ActivityApplication {
-  id            String   @id @default(uuid())
-  applicantId   String   @map("applicant_id")
-  organizationId String  @map("organization_id")
-  title         String   @db.VarChar(200)
-  description   String?  @db.Text
-  status        ActivityApplicationStatus @default(DRAFT)
-  currentLevel  Int?     @map("current_level")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id                String                    @id @default(uuid()) @db.Uuid
+  applicantId       String                    @map("applicant_id") @db.Uuid
+  organizationId    String                    @map("organization_id") @db.Uuid
+  title             String                    @db.VarChar(200)
+  summary           String?                   @db.Text
+  location          String?                   @db.VarChar(200)
+  startTime         DateTime?                 @map("start_time")
+  endTime           DateTime?                 @map("end_time")
+  status            ActivityApplicationStatus @default(DRAFT)
+  currentLevel      Int?                      @map("current_level")
+  currentReviewerId String?                   @map("current_reviewer_id") @db.Uuid
+  submittedAt       DateTime?                 @map("submitted_at")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
 
-  applicant     User         @relation(fields: [applicantId], references: [id], onDelete: Restrict)
-  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  attachments   ApplicationAttachment[]
+  applicant       User         @relation("ActivityApplicationApplicant", fields: [applicantId], references: [id], onDelete: Restrict)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  currentReviewer User?        @relation("ActivityApplicationCurrentReviewer", fields: [currentReviewerId], references: [id], onDelete: SetNull)
+
+  attachments     ApplicationAttachment[]
   approvalRecords ApprovalRecord[]
-  recruitments  Recruitment[]
+  activity        Activity?
 
   @@index([organizationId])
   @@index([applicantId])
   @@index([status])
+  @@index([currentReviewerId])
   @@map("activity_applications")
 }
 
+/**
+ * 立项申请材料表。
+ */
 model ApplicationAttachment {
-  id                 String   @id @default(uuid())
-  applicationId      String   @map("application_id")
-  type               String   @db.VarChar(50)
-  fileUrl            String   @map("file_url") @db.VarChar(500)
-  uploadedAt         DateTime @default(now()) @map("uploaded_at")
+  id            String   @id @default(uuid()) @db.Uuid
+  applicationId String   @map("application_id") @db.Uuid
+  type          String   @db.VarChar(50)
+  fileName      String   @map("file_name") @db.VarChar(255)
+  fileUrl       String   @map("file_url") @db.VarChar(500)
+  fileSize      BigInt?  @map("file_size")
+  uploadedAt    DateTime @default(now()) @map("uploaded_at")
 
   application ActivityApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
@@ -141,81 +490,380 @@ model ApplicationAttachment {
   @@map("application_attachments")
 }
 
+/**
+ * 立项审核记录表。
+ * 用于记录每一次审核动作。
+ */
 model ApprovalRecord {
-  id            String   @id @default(uuid())
-  applicationId String   @map("application_id")
-  reviewerId    String   @map("reviewer_id")
-  level         Int
-  result        String   @db.VarChar(30)
-  comment       String?  @db.Text
-  createdAt     DateTime @default(now()) @map("created_at")
+  id                     String       @id @default(uuid()) @db.Uuid
+  activityApplicationId  String       @map("activity_application_id") @db.Uuid
+  reviewerId             String       @map("reviewer_id") @db.Uuid
+  level                  Int
+  reviewerOrganizationId String       @map("reviewer_organization_id") @db.Uuid
+  result                 ReviewResult
+  comment                String?      @db.Text
+  reviewedAt             DateTime     @default(now()) @map("reviewed_at")
 
-  application ActivityApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  reviewer    User               @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+  activityApplication  ActivityApplication @relation(fields: [activityApplicationId], references: [id], onDelete: Cascade)
+  reviewer             User                @relation("ApprovalRecordReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  reviewerOrganization Organization        @relation("ApprovalRecordReviewerOrganization", fields: [reviewerOrganizationId], references: [id], onDelete: Restrict)
 
-  @@index([applicationId])
+  @@index([activityApplicationId])
   @@index([reviewerId])
+  @@index([reviewerOrganizationId])
   @@map("approval_records")
 }
 
+/**
+ * 已立项活动表。
+ * 活动立项申请最终通过后生成正式活动。
+ */
+model Activity {
+  id             String         @id @default(uuid()) @db.Uuid
+  applicationId  String         @unique @map("application_id") @db.Uuid
+  title          String         @db.VarChar(200)
+  organizerId    String         @map("organizer_id") @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  startTime      DateTime?      @map("start_time")
+  endTime        DateTime?      @map("end_time")
+  status         ActivityStatus @default(PLANNED)
+  publishedAt    DateTime?      @map("published_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  application  ActivityApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  organizer    User                @relation("ActivityOrganizer", fields: [organizerId], references: [id], onDelete: Restrict)
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  recruitments       Recruitment[]
+  checkinSessions    CheckinSession[]
+  checkinRecords     CheckinRecord[]
+  closureApplication ClosureApplication?
+  announcements      Announcement[]
+
+  @@index([organizationId])
+  @@index([organizerId])
+  @@index([status])
+  @@map("activities")
+}
+
+/**
+ * 活动招募表。
+ */
 model Recruitment {
-  id            String   @id @default(uuid())
-  applicationId String   @map("application_id")
-  title         String   @db.VarChar(200)
-  quota         Int?
-  signupDeadline DateTime? @map("signup_deadline")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id                 String                    @id @default(uuid()) @db.Uuid
+  activityId         String                    @map("activity_id") @db.Uuid
+  title              String                    @db.VarChar(200)
+  quota              Int?
+  description        String?                   @db.Text
+  signupStartTime    DateTime?                 @map("signup_start_time")
+  signupEndTime      DateTime?                 @map("signup_end_time")
+  targetUserType     RecruitmentTargetUserType @default(ALL) @map("target_user_type")
+  minGrade           Int?                      @map("min_grade")
+  maxGrade           Int?                      @map("max_grade")
+  requiresAttachment Boolean                   @default(false) @map("requires_attachment")
+  status             RecruitmentStatus         @default(DRAFT)
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
 
-  application ActivityApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  signups     Signup[]
+  activity      Activity                  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  allowedMajors RecruitmentAllowedMajor[]
+  signups       RecruitmentSignup[]
 
-  @@index([applicationId])
+  @@index([activityId])
+  @@index([status])
+  @@index([targetUserType])
   @@map("recruitments")
 }
 
-model Signup {
-  id            String   @id @default(uuid())
-  recruitmentId String   @map("recruitment_id")
-  studentId     String   @map("student_id")
-  status        SignupStatus @default(PENDING)
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+/**
+ * 招募可报名专业表。
+ * 某条招募没有对应记录时，表示不限制专业。
+ */
+model RecruitmentAllowedMajor {
+  recruitmentId String @map("recruitment_id") @db.Uuid
+  majorName     String @map("major_name") @db.VarChar(100)
 
   recruitment Recruitment @relation(fields: [recruitmentId], references: [id], onDelete: Cascade)
-  student     User        @relation(fields: [studentId], references: [id], onDelete: Restrict)
 
-  @@unique([recruitmentId, studentId])
-  @@index([studentId])
-  @@map("signups")
+  @@id([recruitmentId, majorName])
+  @@map("recruitment_allowed_majors")
 }
 
+/**
+ * 报名记录表。
+ */
+model RecruitmentSignup {
+  id            String       @id @default(uuid()) @db.Uuid
+  recruitmentId String       @map("recruitment_id") @db.Uuid
+  userId        String       @map("user_id") @db.Uuid
+  status        SignupStatus @default(PENDING)
+  appliedAt     DateTime     @default(now()) @map("applied_at")
+  reviewedAt    DateTime?    @map("reviewed_at")
+  reviewedBy    String?      @map("reviewed_by") @db.Uuid
+
+  recruitment Recruitment @relation(fields: [recruitmentId], references: [id], onDelete: Cascade)
+  user        User        @relation("RecruitmentSignupUser", fields: [userId], references: [id], onDelete: Restrict)
+  reviewer    User?       @relation("RecruitmentSignupReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  attachments SignupAttachment[]
+
+  @@unique([recruitmentId, userId])
+  @@index([userId])
+  @@index([status])
+  @@index([reviewedBy])
+  @@map("recruitment_signups")
+}
+
+/**
+ * 报名材料表。
+ */
+model SignupAttachment {
+  id         String   @id @default(uuid()) @db.Uuid
+  signupId   String   @map("signup_id") @db.Uuid
+  type       String   @db.VarChar(50)
+  fileName   String   @map("file_name") @db.VarChar(255)
+  fileUrl    String   @map("file_url") @db.VarChar(500)
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  signup RecruitmentSignup @relation(fields: [signupId], references: [id], onDelete: Cascade)
+
+  @@index([signupId])
+  @@map("signup_attachments")
+}
+
+/**
+ * 签到场次表。
+ */
+model CheckinSession {
+  id          String               @id @default(uuid()) @db.Uuid
+  activityId  String               @map("activity_id") @db.Uuid
+  mode        CheckinMode
+  checkinCode String?              @map("checkin_code") @db.VarChar(20)
+  qrcodeToken String?              @map("qrcode_token") @db.VarChar(255)
+  startTime   DateTime             @map("start_time")
+  endTime     DateTime             @map("end_time")
+  status      CheckinSessionStatus @default(PENDING)
+  createdBy   String               @map("created_by") @db.Uuid
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  creator  User     @relation("CheckinSessionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  records CheckinRecord[]
+
+  @@index([activityId])
+  @@index([status])
+  @@index([createdBy])
+  @@map("checkin_sessions")
+}
+
+/**
+ * 签到记录表。
+ * 只记录实际发生签到行为的用户，不记录 absent。
+ */
 model CheckinRecord {
-  id            String   @id @default(uuid())
-  applicationId String   @map("application_id")
-  studentId     String   @map("student_id")
-  status        CheckinStatus @default(CHECKED_IN)
-  checkedInAt   DateTime @default(now()) @map("checked_in_at")
+  id          String              @id @default(uuid()) @db.Uuid
+  sessionId   String              @map("session_id") @db.Uuid
+  activityId  String              @map("activity_id") @db.Uuid
+  userId      String              @map("user_id") @db.Uuid
+  status      CheckinRecordStatus @default(CHECKED_IN)
+  checkedInAt DateTime?           @map("checked_in_at")
 
-  application ActivityApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  student     User               @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  session  CheckinSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  activity Activity       @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User           @relation("CheckinRecordUser", fields: [userId], references: [id], onDelete: Restrict)
 
-  @@unique([applicationId, studentId])
-  @@index([studentId])
+  @@unique([sessionId, userId])
+  @@index([activityId])
+  @@index([userId])
   @@map("checkin_records")
 }
 
+/**
+ * 结项申请表。
+ */
+model ClosureApplication {
+  id               String                   @id @default(uuid()) @db.Uuid
+  activityId       String                   @unique @map("activity_id") @db.Uuid
+  applicantId      String                   @map("applicant_id") @db.Uuid
+  summary          String?                  @db.Text
+  participantCount Int?                     @map("participant_count")
+  status           ClosureApplicationStatus @default(DRAFT)
+  submittedAt      DateTime?                @map("submitted_at")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+
+  activity  Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  applicant User     @relation("ClosureApplicationApplicant", fields: [applicantId], references: [id], onDelete: Restrict)
+
+  attachments   ClosureAttachment[]
+  reviewRecords ClosureReviewRecord[]
+
+  @@index([applicantId])
+  @@index([status])
+  @@map("closure_applications")
+}
+
+/**
+ * 结项材料表。
+ */
+model ClosureAttachment {
+  id                   String   @id @default(uuid()) @db.Uuid
+  closureApplicationId String   @map("closure_application_id") @db.Uuid
+  type                 String   @db.VarChar(50)
+  fileName             String   @map("file_name") @db.VarChar(255)
+  fileUrl              String   @map("file_url") @db.VarChar(500)
+  uploadedAt           DateTime @default(now()) @map("uploaded_at")
+
+  closureApplication ClosureApplication @relation(fields: [closureApplicationId], references: [id], onDelete: Cascade)
+
+  @@index([closureApplicationId])
+  @@map("closure_attachments")
+}
+
+/**
+ * 结项审核记录表。
+ */
+model ClosureReviewRecord {
+  id                     String       @id @default(uuid()) @db.Uuid
+  closureApplicationId   String       @map("closure_application_id") @db.Uuid
+  reviewerId             String       @map("reviewer_id") @db.Uuid
+  level                  Int
+  reviewerOrganizationId String       @map("reviewer_organization_id") @db.Uuid
+  result                 ReviewResult
+  comment                String?      @db.Text
+  reviewedAt             DateTime     @default(now()) @map("reviewed_at")
+
+  closureApplication   ClosureApplication @relation(fields: [closureApplicationId], references: [id], onDelete: Cascade)
+  reviewer             User               @relation("ClosureReviewRecordReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  reviewerOrganization Organization       @relation("ClosureReviewRecordReviewerOrganization", fields: [reviewerOrganizationId], references: [id], onDelete: Restrict)
+
+  @@index([closureApplicationId])
+  @@index([reviewerId])
+  @@index([reviewerOrganizationId])
+  @@map("closure_review_records")
+}
+
+/**
+ * 权限申请表。
+ */
+model RoleApplication {
+  id             String                @id @default(uuid()) @db.Uuid
+  applicantId    String                @map("applicant_id") @db.Uuid
+  targetRoleCode String                @map("target_role_code") @db.VarChar(50)
+  organizationId String?               @map("organization_id") @db.Uuid
+  reason         String?               @db.Text
+  status         RoleApplicationStatus @default(DRAFT)
+  submittedAt    DateTime?             @map("submitted_at")
+  reviewedAt     DateTime?             @map("reviewed_at")
+  reviewedBy     String?               @map("reviewed_by") @db.Uuid
+  reviewComment  String?               @map("review_comment") @db.Text
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  applicant    User          @relation("RoleApplicationApplicant", fields: [applicantId], references: [id], onDelete: Cascade)
+  reviewer     User?         @relation("RoleApplicationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([applicantId])
+  @@index([targetRoleCode])
+  @@index([organizationId])
+  @@index([status])
+  @@index([reviewedBy])
+  @@map("role_applications")
+}
+
+/**
+ * 待办事项表。
+ * relatedResourceType + relatedResourceId 由业务层解析。
+ */
+model PendingTask {
+  id                  String              @id @default(uuid()) @db.Uuid
+  assigneeId          String              @map("assignee_id") @db.Uuid
+  taskType            PendingTaskType     @map("task_type")
+  relatedResourceType RelatedResourceType @map("related_resource_type")
+  relatedResourceId   String              @map("related_resource_id") @db.Uuid
+  title               String              @db.VarChar(200)
+  status              PendingTaskStatus   @default(PENDING)
+  createdBy           String?             @map("created_by") @db.Uuid
+  createdAt           DateTime            @default(now()) @map("created_at")
+  processedAt         DateTime?           @map("processed_at")
+
+  assignee User  @relation("PendingTaskAssignee", fields: [assigneeId], references: [id], onDelete: Cascade)
+  creator  User? @relation("PendingTaskCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([assigneeId])
+  @@index([taskType])
+  @@index([status])
+  @@index([createdBy])
+  @@map("pending_tasks")
+}
+
+/**
+ * 新闻/公告表。
+ */
 model Announcement {
-  id          String   @id @default(uuid())
-  title       String   @db.VarChar(200)
-  content     String   @db.Text
-  type        String   @db.VarChar(30)
-  isPinned    Boolean  @default(false) @map("is_pinned")
-  publishedAt DateTime @default(now()) @map("published_at")
-  publisherId String?  @map("publisher_id")
+  id          String             @id @default(uuid()) @db.Uuid
+  activityId  String?            @map("activity_id") @db.Uuid
+  title       String             @db.VarChar(200)
+  content     String             @db.Text
+  type        AnnouncementType
+  isPinned    Boolean            @default(false) @map("is_pinned")
+  publisherId String?            @map("publisher_id") @db.Uuid
+  status      AnnouncementStatus @default(DRAFT)
+  publishedAt DateTime?          @map("published_at")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
 
-  publisher User? @relation(fields: [publisherId], references: [id], onDelete: SetNull)
+  activity  Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  publisher User?     @relation("AnnouncementPublisher", fields: [publisherId], references: [id], onDelete: SetNull)
 
+  @@index([activityId])
+  @@index([publisherId])
+  @@index([status])
   @@index([publishedAt])
   @@map("announcements")
 }
 
+/**
+ * 消息通知表。
+ */
+model Notification {
+  id          String                  @id @default(uuid()) @db.Uuid
+  title       String                  @db.VarChar(200)
+  content     String                  @db.Text
+  targetType  NotificationTargetType  @map("target_type")
+  targetValue String?                 @map("target_value") @db.VarChar(100)
+  sourceType  NotificationSourceType? @map("source_type")
+  sourceId    String?                 @map("source_id") @db.Uuid
+  createdBy   String?                 @map("created_by") @db.Uuid
+  createdAt   DateTime                @default(now()) @map("created_at")
+
+  creator  User?                 @relation("NotificationCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  receipts NotificationReceipt[]
+
+  @@index([targetType])
+  @@index([targetValue])
+  @@index([sourceType])
+  @@index([sourceId])
+  @@index([createdBy])
+  @@map("notifications")
+}
+
+/**
+ * 通知接收/已读表。
+ */
+model NotificationReceipt {
+  id             String    @id @default(uuid()) @db.Uuid
+  notificationId String    @map("notification_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  isRead         Boolean   @default(false) @map("is_read")
+  readAt         DateTime? @map("read_at")
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([userId])
+  @@map("notification_receipts")
+}

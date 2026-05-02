@@ -2,6 +2,7 @@ import type { Application } from 'express'
 
 import healthRoutes from './health/health.routes.js'
 import authRoutes from './auth/auth.routes.js'
+import usersRoutes from './users/users.routes.js'
 import announcementsRoutes from './announcements/announcements.routes.js'
 import activityApplicationsRoutes from './activity-applications/activity-applications.routes.js'
 import approvalRoutes from './approval/approval.routes.js'
@@ -16,6 +17,7 @@ export function registerRoutes(app: Application) {
   app.use('/api/v1', healthRoutes)
 
   app.use('/api/v1/auth', authRoutes)
+  app.use('/api/v1/users', usersRoutes)
   app.use('/api/v1/announcements', announcementsRoutes)
   app.use('/api/v1/activity-applications', activityApplicationsRoutes)
   app.use('/api/v1/approval', approvalRoutes)
@@ -26,4 +28,3 @@ export function registerRoutes(app: Application) {
   app.use('/api/v1/orgs', orgsRoutes)
   app.use('/api/v1/admin', adminRoutes)
 }
-

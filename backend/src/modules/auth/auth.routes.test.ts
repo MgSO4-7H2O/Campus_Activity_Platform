@@ -1,0 +1,107 @@
+import request from 'supertest'
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
+
+import prisma from '../../shared/prisma/client.js'
+import { createApp } from '../../app.js'
+
+async function ensureBasicRole() {
+  return prisma.role.upsert({
+    where: { code: 'BASIC_USER' },
+    update: {},
+    create: { code: 'BASIC_USER', name: '基础用户' },
+  })
+}
+
+describe('Auth flow', () => {
+  beforeAll(async () => {
+    await ensureBasicRole()
+  })
+
+  beforeEach(async () => {
+    await prisma.userRole.deleteMany()
+    await prisma.studentProfile.deleteMany()
+    await prisma.teacherProfile.deleteMany()
+    await prisma.user.deleteMany()
+  })
+
+  it('registers student user', async () => {
+    const res = await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'user1',
+      password: 'Password123!',
+      userType: 'student',
+      realName: '测试用户',
+      email: 'user1@example.com',
+    })
+
+    expect(res.status).toBe(201)
+    expect(res.body?.data?.accessToken).toBeTruthy()
+    expect(res.body?.data?.user?.username).toBe('user1')
+    expect(res.body?.data?.user?.roles).toContain('BASIC_USER')
+  })
+
+  it('rejects duplicate username', async () => {
+    await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'user1',
+      password: 'Password123!',
+      userType: 'student',
+      realName: '测试用户',
+    })
+
+    const res = await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'user1',
+      password: 'Password123!',
+      userType: 'student',
+      realName: '测试用户',
+    })
+
+    expect(res.status).toBe(409)
+    expect(res.body?.error?.code).toBe('CONFLICT')
+  })
+
+  it('logs in and gets /users/me', async () => {
+    await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'user1',
+      password: 'Password123!',
+      userType: 'student',
+      realName: '测试用户',
+    })
+
+    const loginRes = await request(createApp()).post('/api/v1/auth/login').send({
+      username: 'user1',
+      password: 'Password123!',
+    })
+    expect(loginRes.status).toBe(200)
+    const token = loginRes.body?.data?.accessToken
+    expect(token).toBeTruthy()
+
+    const meRes = await request(createApp())
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${token}`)
+    expect(meRes.status).toBe(200)
+    expect(meRes.body?.data?.username).toBe('user1')
+    expect(meRes.body?.data?.roles).toContain('BASIC_USER')
+  })
+
+  it('rejects wrong password', async () => {
+    await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'user1',
+      password: 'Password123!',
+      userType: 'student',
+      realName: '测试用户',
+    })
+
+    const res = await request(createApp()).post('/api/v1/auth/login').send({
+      username: 'user1',
+      password: 'WrongPassword!',
+    })
+    expect(res.status).toBe(401)
+    expect(res.body?.error?.code).toBe('UNAUTHORIZED')
+  })
+
+  it('rejects /users/me when not logged in', async () => {
+    const res = await request(createApp()).get('/api/v1/users/me')
+    expect(res.status).toBe(401)
+    expect(res.body?.error?.code).toBe('UNAUTHORIZED')
+  })
+})
+

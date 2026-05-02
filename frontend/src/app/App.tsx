@@ -5,6 +5,7 @@ import AdminPage from '../modules/admin'
 import AnnouncementsPage from '../modules/announcements'
 import ApprovalPage from '../modules/approval'
 import AuthPage from '../modules/auth'
+import MePage from '../modules/users'
 import ActivityApplicationsPage from '../modules/activity-applications'
 import CheckinPage from '../modules/checkin'
 import ClosurePage from '../modules/closure'
@@ -38,6 +39,8 @@ export default function App() {
           selectable={false}
           items={[
             { key: 'home', label: <Link to="/">首页</Link> },
+            { key: 'auth', label: <Link to="/auth">登录/注册</Link> },
+            { key: 'me', label: <Link to="/me">我的信息</Link> },
             { key: 'applications', label: <Link to="/activity-applications">活动申请</Link> },
             { key: 'approval', label: <Link to="/approval">审核流转</Link> },
             { key: 'recruitment', label: <Link to="/recruitment">招募报名</Link> },
@@ -52,6 +55,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/me" element={<MePage />} />
           <Route path="/announcements" element={<AnnouncementsPage />} />
           <Route path="/activity-applications" element={<ActivityApplicationsPage />} />
           <Route path="/approval" element={<ApprovalPage />} />
@@ -68,4 +72,3 @@ export default function App() {
     </Layout>
   )
 }
-

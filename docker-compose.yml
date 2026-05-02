@@ -61,7 +61,8 @@ services:
       sh -c "corepack enable
       && pnpm install
       && pnpm --filter @campus-activity/server db:generate
-      && pnpm --filter @campus-activity/server db:push
+      && pnpm --filter @campus-activity/server db:migrate
+      && pnpm --filter @campus-activity/server db:seed
       && pnpm --filter @campus-activity/server dev"
     networks:
       - cap-network
@@ -90,4 +91,3 @@ services:
 networks:
   cap-network:
     name: cap-network
-

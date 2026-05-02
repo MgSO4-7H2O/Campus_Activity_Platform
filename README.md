@@ -57,7 +57,8 @@ cp frontend/.env.example frontend/.env
 
 # 4) 初始化数据库（首次）
 pnpm --filter @campus-activity/server db:generate
-pnpm --filter @campus-activity/server db:push
+pnpm --filter @campus-activity/server db:migrate
+pnpm --filter @campus-activity/server db:seed
 
 # 5) 启动后端与前端（两个终端，推荐本机运行）
 pnpm --filter @campus-activity/server dev
