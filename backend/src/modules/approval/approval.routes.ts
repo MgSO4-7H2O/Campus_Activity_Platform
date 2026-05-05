@@ -1,12 +1,19 @@
 import { Router, type Router as ExpressRouter } from 'express'
+import { requireAuth } from '../../shared/middleware/auth.js'
+import { ok } from '../../shared/utils/response.js'
+import { approvalService } from './approval.service.js'
+import { getPendingTasksQuerySchema } from './approval.schemas.js'
 
 const router: ExpressRouter = Router()
 
-import { fail } from '../../shared/utils/response.js'
-
-router.use((_req, res) => {
-  res.status(501).json(fail('NOT_IMPLEMENTED', 'approval 模块尚未实现'))
+router.get('/pending-tasks', requireAuth, async (req, res, next) => {
+  try {
+    const query = getPendingTasksQuerySchema.parse(req.query)
+    const data = await approvalService.getPendingTasks(req.auth!.userId, query.status, query.taskType)
+    res.json(ok(data))
+  } catch (error) {
+    next(error)
+  }
 })
 
 export default router
-
