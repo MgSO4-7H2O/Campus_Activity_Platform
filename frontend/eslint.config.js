@@ -30,7 +30,7 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['dist/', 'node_modules/'],
+    ignores: ['dist/', 'node_modules/', 'vite.config.js', 'vite.config.d.ts', 'tsconfig.node.tsbuildinfo'],
   }
 )
 
