@@ -1,5 +1,5 @@
 import prisma from '../../shared/prisma/client.js'
-import { notFound, badRequest, forbidden } from '../../shared/errors/app-error.js'
+import { notFound, badRequest } from '../../shared/errors/app-error.js'
 
 export const adminService = {
   async submitRoleApplication(userId: string, data: { targetRoleCode: string, organizationId?: string, reason?: string }) {

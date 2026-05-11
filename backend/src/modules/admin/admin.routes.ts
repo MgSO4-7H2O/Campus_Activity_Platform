@@ -1,10 +1,12 @@
 import { Router, type Router as ExpressRouter } from 'express'
+import { z } from 'zod'
 import { requireAuth } from '../../shared/middleware/auth.js'
 import { ok } from '../../shared/utils/response.js'
 import { adminService } from './admin.service.js'
 import { createRoleApplicationSchema, reviewRoleApplicationSchema } from './admin.schemas.js'
 
 const router: ExpressRouter = Router()
+const routeIdSchema = z.string().uuid()
 
 /**
  * @swagger
@@ -63,7 +65,8 @@ router.get('/role-applications', requireAuth, async (req, res, next) => {
 router.post('/role-applications/:id/review', requireAuth, async (req, res, next) => {
   try {
     const body = reviewRoleApplicationSchema.parse(req.body)
-    const data = await adminService.reviewRoleApplication(req.auth!.userId, req.params.id, body)
+    const applicationId = routeIdSchema.parse(req.params.id)
+    const data = await adminService.reviewRoleApplication(req.auth!.userId, applicationId, body)
     res.json(ok(data))
   } catch (error) {
     next(error)
@@ -71,4 +74,3 @@ router.post('/role-applications/:id/review', requireAuth, async (req, res, next)
 })
 
 export default router
-

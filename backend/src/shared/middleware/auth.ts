@@ -5,6 +5,8 @@ import { verifyJwt } from '../auth/jwt.js'
 import { unauthorized } from '../errors/app-error.js'
 
 declare global {
+  // Express exposes Request augmentation through this namespace.
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       auth?: {
@@ -31,10 +33,9 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
     const payload = verifyJwt(token, env.JWT_SECRET)
     req.auth = { userId: payload.sub }
     next()
-  } catch (_e) {
+  } catch {
     next(unauthorized('登录已过期或无效，请重新登录'))
   }
 }
 
 export {}
-

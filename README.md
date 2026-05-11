@@ -71,20 +71,34 @@ pnpm --filter @campus-activity/web dev
 - 后端 Swagger：`http://localhost:3000/api-docs`
 - 数据库管理（Adminer，可选）：`http://localhost:8080`
 
-## 6. 测试（模块测试 + 统一测试）
+## 6. 测试与检查
 
 ```bash
-# 全仓统一（含 shared/frontend/backend）
+# 全仓统一测试（shared + backend + frontend）
 pnpm -r test:run
 
-# 仅后端
+# 后端接口/模块测试（Vitest + Supertest；需本地 Postgres 可连接）
 pnpm --filter @campus-activity/server test:run
 
-# 仅前端
+# 前端页面/组件测试（Vitest + React Testing Library）
 pnpm --filter @campus-activity/web test:run
+
+# 端到端测试（Playwright；首次运行需安装浏览器）
+pnpm --filter @campus-activity/web exec playwright install chromium
+pnpm --filter @campus-activity/web test:e2e
+
+# 类型检查、Lint 与构建
+pnpm typecheck
+pnpm lint
+pnpm --filter @campus-activity/web build
+
+# 一键检查（lint + typecheck + test）
+pnpm check
 ```
 
-更完整的测试策略与流程见：`docs/testing.md`。
+说明：
+- 后端测试会访问 `backend/.env` 中配置的 `DATABASE_URL`，运行前请先启动 Postgres。
+- E2E 测试会启动或复用 `http://localhost:5173` 的前端服务。
 
 ## 7. 可选：完全容器化启动
 

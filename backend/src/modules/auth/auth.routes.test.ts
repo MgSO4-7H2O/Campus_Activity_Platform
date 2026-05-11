@@ -39,6 +39,46 @@ describe('Auth flow', () => {
     expect(res.body?.data?.user?.roles).toContain('BASIC_USER')
   })
 
+  it('registers teacher user', async () => {
+    const res = await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'teacher1',
+      password: 'Password123!',
+      userType: 'teacher',
+      realName: '测试教师',
+      email: 'teacher1@example.com',
+    })
+
+    expect(res.status).toBe(201)
+    expect(res.body?.data?.accessToken).toBeTruthy()
+    expect(res.body?.data?.user?.username).toBe('teacher1')
+    expect(res.body?.data?.user?.userType).toBe('TEACHER')
+    expect(res.body?.data?.user?.roles).toContain('BASIC_USER')
+    expect(res.body?.data?.user?.passwordHash).toBeUndefined()
+  })
+
+  it('rejects registration without realName', async () => {
+    const res = await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'user1',
+      password: 'Password123!',
+      userType: 'student',
+    })
+
+    expect(res.status).toBe(400)
+    expect(res.body?.error?.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('rejects registration with short username', async () => {
+    const res = await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'u1',
+      password: 'Password123!',
+      userType: 'student',
+      realName: '测试用户',
+    })
+
+    expect(res.status).toBe(400)
+    expect(res.body?.error?.code).toBe('VALIDATION_ERROR')
+  })
+
   it('rejects duplicate username', async () => {
     await request(createApp()).post('/api/v1/auth/register').send({
       username: 'user1',
@@ -104,4 +144,3 @@ describe('Auth flow', () => {
     expect(res.body?.error?.code).toBe('UNAUTHORIZED')
   })
 })
-
