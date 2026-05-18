@@ -30,6 +30,22 @@ export default tseslint.config(
     },
   },
   {
+    // 脚本（Node 环境）允许使用 Node / Web 全局 API
+    files: ['scripts/**/*.{js,mjs,cjs}', '*.{js,mjs,cjs}'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+        fetch: 'readonly',
+        localStorage: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        AbortController: 'readonly',
+      },
+    },
+  },
+  {
     ignores: ['dist/', 'node_modules/', 'vite.config.js', 'vite.config.d.ts', 'tsconfig.node.tsbuildinfo'],
   }
 )
