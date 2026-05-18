@@ -7,6 +7,11 @@ import ActivityListPage from '../modules/activities/ActivityListPage'
 import MyActivitiesPage from '../modules/activities/MyActivitiesPage'
 import ActivityApplyPage from '../modules/activity-applications/ActivityApplyPage'
 import MyApplicationsPage from '../modules/activity-applications/MyApplicationsPage'
+import AdminDashboardPage from '../modules/admin/AdminDashboardPage'
+import AdminOrganizationsPage from '../modules/admin/AdminOrganizationsPage'
+import AdminSystemLogsPage from '../modules/admin/AdminSystemLogsPage'
+import AdminUserDetailPage from '../modules/admin/AdminUserDetailPage'
+import AdminUsersPage from '../modules/admin/AdminUsersPage'
 import ReviewerDetailPage from '../modules/approval/ReviewerDetailPage'
 import ReviewerInboxPage from '../modules/approval/ReviewerInboxPage'
 import LoginPage from '../modules/auth/LoginPage'
@@ -17,6 +22,7 @@ import ClosureInboxPage from '../modules/closure/ClosureInboxPage'
 import ClosureReviewPage from '../modules/closure/ClosureReviewPage'
 import HomePage from '../modules/home/HomePage'
 import NotificationCenterPage from '../modules/notifications/NotificationCenterPage'
+import OrganizationsPage from '../modules/organizations/OrganizationsPage'
 import PermissionApplyPage from '../modules/permissions/PermissionApplyPage'
 import ActivityRegisterPage from '../modules/recruitment/ActivityRegisterPage'
 import MyRegistrationsPage from '../modules/recruitment/MyRegistrationsPage'
@@ -24,6 +30,7 @@ import RecruitmentEditPage from '../modules/recruitment/RecruitmentEditPage'
 import RegistrationReviewPage from '../modules/recruitment/RegistrationReviewPage'
 import AnnouncementManagePage from '../modules/sysadmin/AnnouncementManagePage'
 import RoleApplicationReviewPage from '../modules/sysadmin/RoleApplicationReviewPage'
+import TasksPage from '../modules/tasks/TasksPage'
 import MeEditPage from '../modules/users/MeEditPage'
 import MePage from '../modules/users/MePage'
 import MeProfilePage from '../modules/users/MeProfilePage'
@@ -41,6 +48,7 @@ export default function App() {
           <Route path="register" element={<RegisterPage />} />
           <Route path="activities" element={<ActivityListPage />} />
           <Route path="activities/:id" element={<ActivityDetailPage />} />
+          <Route path="organizations" element={<OrganizationsPage />} />
 
           {/* 登录后通用页面 */}
           <Route
@@ -80,6 +88,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <PermissionApplyPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="tasks"
+            element={
+              <RequireAuth>
+                <TasksPage />
               </RequireAuth>
             }
           />
@@ -193,6 +209,46 @@ export default function App() {
           />
 
           {/* SYS_ADMIN 视角 */}
+          <Route
+            path="admin"
+            element={
+              <RequireAuth>
+                <AdminDashboardPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="admin/users"
+            element={
+              <RequireAuth>
+                <AdminUsersPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="admin/users/:id"
+            element={
+              <RequireAuth>
+                <AdminUserDetailPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="admin/organizations"
+            element={
+              <RequireAuth>
+                <AdminOrganizationsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="admin/system-logs"
+            element={
+              <RequireAuth>
+                <AdminSystemLogsPage />
+              </RequireAuth>
+            }
+          />
           <Route
             path="admin/role-applications"
             element={

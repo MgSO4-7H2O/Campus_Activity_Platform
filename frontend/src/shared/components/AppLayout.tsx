@@ -1,15 +1,21 @@
 import {
+  ApartmentOutlined,
   AuditOutlined,
   BellOutlined,
   CheckSquareOutlined,
   CrownOutlined,
+  DashboardOutlined,
+  DatabaseOutlined,
   FileSearchOutlined,
   FileTextOutlined,
   HomeOutlined,
+  InboxOutlined,
   LoginOutlined,
   LogoutOutlined,
+  NotificationOutlined,
   ScheduleOutlined,
   SolutionOutlined,
+  TeamOutlined,
   UserOutlined,
   UsergroupAddOutlined,
 } from '@ant-design/icons'
@@ -33,6 +39,7 @@ function buildMenu(viewRole: string | null, isLoggedIn: boolean): MenuItem[] {
   if (!isLoggedIn) {
     items.push(
       { key: '/activities', icon: <UsergroupAddOutlined />, label: <Link to="/activities">活动列表</Link> },
+      { key: '/organizations', icon: <ApartmentOutlined />, label: <Link to="/organizations">组织架构</Link> },
       { key: '/login', icon: <LoginOutlined />, label: <Link to="/login">登录</Link> },
       { key: '/register', icon: <SolutionOutlined />, label: <Link to="/register">注册</Link> }
     )
@@ -41,8 +48,10 @@ function buildMenu(viewRole: string | null, isLoggedIn: boolean): MenuItem[] {
 
   // 通用模块：所有登录用户可见
   items.push(
+    { key: '/tasks', icon: <InboxOutlined />, label: <Link to="/tasks">我的待办</Link> },
     { key: '/notifications', icon: <BellOutlined />, label: <Link to="/notifications">通知中心</Link> },
-    { key: '/permissions/apply', icon: <SolutionOutlined />, label: <Link to="/permissions/apply">权限申请</Link> }
+    { key: '/permissions/apply', icon: <SolutionOutlined />, label: <Link to="/permissions/apply">权限申请</Link> },
+    { key: '/organizations', icon: <ApartmentOutlined />, label: <Link to="/organizations">组织架构</Link> }
   )
 
   if (viewRole === 'BASIC_USER' || viewRole === 'ORGANIZER') {
@@ -88,8 +97,12 @@ function buildMenu(viewRole: string | null, isLoggedIn: boolean): MenuItem[] {
       icon: <CrownOutlined />,
       label: '系统管理',
       children: [
-        { key: '/admin/role-applications', label: <Link to="/admin/role-applications">权限申请审核</Link> },
-        { key: '/admin/announcements', label: <Link to="/admin/announcements">公告管理</Link> },
+        { key: '/admin', icon: <DashboardOutlined />, label: <Link to="/admin">概览</Link> },
+        { key: '/admin/users', icon: <TeamOutlined />, label: <Link to="/admin/users">用户管理</Link> },
+        { key: '/admin/organizations', icon: <ApartmentOutlined />, label: <Link to="/admin/organizations">组织管理</Link> },
+        { key: '/admin/role-applications', icon: <SolutionOutlined />, label: <Link to="/admin/role-applications">权限申请审核</Link> },
+        { key: '/admin/announcements', icon: <NotificationOutlined />, label: <Link to="/admin/announcements">公告管理</Link> },
+        { key: '/admin/system-logs', icon: <DatabaseOutlined />, label: <Link to="/admin/system-logs">系统日志</Link> },
       ],
     })
   }
@@ -221,8 +234,13 @@ export default function AppLayout() {
 function pickSelectedKey(pathname: string): string {
   const exact = ['/', '/login', '/register', '/me', '/me/edit', '/me/profile', '/notifications', '/permissions/apply',
     '/applications', '/applications/new', '/activities', '/my/registrations', '/my/activities',
-    '/approvals', '/approvals/closures', '/admin/role-applications', '/admin/announcements']
+    '/approvals', '/approvals/closures', '/tasks', '/organizations', '/admin', '/admin/users',
+    '/admin/organizations', '/admin/role-applications', '/admin/announcements', '/admin/system-logs']
   if (exact.includes(pathname)) return pathname
+  if (pathname.startsWith('/admin/users/')) return '/admin/users'
+  if (pathname.startsWith('/admin/organizations/')) return '/admin/organizations'
+  if (pathname.startsWith('/admin/role-applications/')) return '/admin/role-applications'
+  if (pathname.startsWith('/tasks/')) return '/tasks'
   if (pathname.startsWith('/applications/')) return '/applications'
   if (pathname.startsWith('/approvals/closures')) return '/approvals/closures'
   if (pathname.startsWith('/approvals')) return '/approvals'
@@ -249,8 +267,18 @@ function pageTitle(pathname: string): string {
     '/applications/new': '活动立项申请',
     '/activities': '活动列表',
     '/approvals': '审核待办',
+    '/approvals/closures': '结项待审',
     '/my/registrations': '我的报名',
     '/my/activities': '我负责的活动',
+    '/tasks': '我的待办',
+    '/organizations': '组织架构',
+    '/admin': '系统概览',
+    '/admin/users': '用户管理',
+    '/admin/organizations': '组织管理',
+    '/admin/role-applications': '权限申请审核',
+    '/admin/announcements': '公告管理',
+    '/admin/system-logs': '系统日志',
   }
+  if (pathname.startsWith('/admin/users/')) return '用户详情'
   return map[pathname] ?? '校园活动平台'
 }
