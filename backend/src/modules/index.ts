@@ -12,6 +12,7 @@ import closureRoutes from './closure/closure.routes.js'
 import notificationsRoutes from './notifications/notifications.routes.js'
 import orgsRoutes from './orgs/orgs.routes.js'
 import adminRoutes from './admin/admin.routes.js'
+import roleApplicationsRoutes from './role-applications/role-applications.routes.js'
 
 export function registerRoutes(app: Application) {
   app.use('/api/v1', healthRoutes)
@@ -26,5 +27,6 @@ export function registerRoutes(app: Application) {
   app.use('/api/v1/closure', closureRoutes)
   app.use('/api/v1/notifications', notificationsRoutes)
   app.use('/api/v1/orgs', orgsRoutes)
+  app.use('/api/v1/role-applications', roleApplicationsRoutes)
   app.use('/api/v1/admin', adminRoutes)
 }

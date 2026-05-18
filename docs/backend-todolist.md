@@ -21,7 +21,7 @@
 
 > 目标：登录后可以申请角色、查看组织树、看到待办列表。
 
-- [ ] **1. role-applications**
+- [x] **1. role-applications**
   - `POST /api/v1/role-applications`
   - `GET /api/v1/role-applications/me`
   - `GET /api/v1/role-applications/:id`
