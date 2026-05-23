@@ -25,7 +25,7 @@ export const roleApplicationsService = {
         submittedAt: new Date(),
       },
     })
-    return application
+    return roleApplicationsService.getApplicationById(application.id)
   },
 
   async getMyApplications(userId: string) {

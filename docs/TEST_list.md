@@ -1,9 +1,29 @@
 测试体系
+├── 当前验证结果
+│   ├── [x] 单元/模块测试：54 个用例通过
+│   │   └── pnpm -r test:run
+│   ├── [x] E2E 测试：mock 前端流程 3 个用例通过
+│   │   └── pnpm --filter @campus-activity/web test:e2e
+│   ├── [x] 真实后端 + PostgreSQL E2E：1 个用例通过
+│   │   └── pnpm --filter @campus-activity/web test:e2e:real
+│   ├── [x] backend 覆盖率已生成
+│   │   └── backend/coverage/index.html
+│   ├── [x] frontend 覆盖率已生成：语句覆盖率 24.30%
+│   │   └── frontend/coverage/lcov-report/index.html
+│   └── [x] shared 覆盖率已生成
+│       └── shared/coverage/index.html
+│
 ├── [x] shared 共享契约测试
 │   ├── [x] roles 枚举基础测试
 │   │   └── shared/src/types/roles.test.ts
-│   ├── [ ] statuses 状态枚举测试
-│   ├── [ ] API 响应结构测试
+│   ├── [x] statuses 状态枚举测试
+│   │   └── shared/src/types/statuses.test.ts
+│   │   ├── [x] activity application workflow statuses
+│   │   └── [x] signup statuses
+│   ├── [x] API 响应结构测试
+│   │   └── shared/src/types/http.test.ts
+│   │   ├── [x] 成功响应支持可选 metadata
+│   │   └── [x] 失败响应包含 actionable error fields
 │   └── [ ] shared 与 Prisma enum 一致性测试
 │
 ├── [x] backend 后端接口测试
@@ -29,14 +49,36 @@
 │   │   ├── [x] 修改学生 profile 成功
 │   │   ├── [x] 修改教师 profile 成功
 │   │   └── [x] grade 非数字失败
-│   ├── [ ] admin 权限申请接口测试
-│   │   ├── [ ] 申请 ORGANIZER
-│   │   ├── [ ] 申请 REVIEWER 时必须是 teacher
-│   │   ├── [ ] REVIEWER/ORGANIZER 必须绑定组织
-│   │   ├── [ ] SYS_ADMIN 审核通过后写入 user_roles
-│   │   └── [ ] 审核通过后写入 user_organizations
-│   ├── [ ] activity-applications 活动立项接口测试
-│   ├── [ ] approval 待办与审核流转测试
+│   ├── [x] real E2E 数据清理 helper 测试
+│   │   └── backend/src/test/real-e2e-cleanup.test.ts
+│   │   ├── [x] 删除真实 E2E 创建的测试用户
+│   │   └── [x] 级联删除学生 profile
+│   ├── [x] role-applications 角色申请接口测试
+│   │   └── backend/src/modules/role-applications/role-applications.routes.test.ts
+│   │   ├── [x] 未登录提交申请失败
+│   │   ├── [x] 创建 ORGANIZER 申请并查询本人申请列表
+│   │   ├── [x] student 申请 REVIEWER 失败
+│   │   ├── [x] ORGANIZER 申请缺少组织绑定失败
+│   │   └── [x] 审核通过后写入 user_roles 与 user_organizations
+│   ├── [x] activity-applications 活动立项接口测试
+│   │   └── backend/src/modules/activity-applications/activity-applications.routes.test.ts
+│   │   ├── [x] 未登录创建失败
+│   │   ├── [x] 已认证组织者创建草稿成功
+│   │   ├── [x] 非法 organizationId 创建失败
+│   │   ├── [x] 申请人更新草稿成功
+│   │   ├── [x] 非申请人更新失败
+│   │   └── [x] 提交草稿后创建 reviewer pending task
+│   ├── [x] approval 待办与审核流转测试
+│   │   └── backend/src/modules/approval/approval.routes.test.ts
+│   │   ├── [x] 未登录查询待办失败
+│   │   ├── [x] 只返回分配给当前用户的待办
+│   │   ├── [x] 支持按 status 与 taskType 过滤
+│   │   └── [x] 不支持的过滤参数返回校验错误
+│   ├── [ ] admin 后台管理接口测试
+│   │   ├── [ ] 用户列表查询
+│   │   ├── [ ] 用户状态管理
+│   │   ├── [ ] 组织管理
+│   │   └── [ ] 系统日志查询
 │   ├── [ ] recruitment 招募测试
 │   ├── [ ] signup 报名测试
 │   ├── [ ] checkin 签到测试
@@ -65,6 +107,22 @@
 │   │   ├── [x] 多角色用户显示角色切换入口
 │   │   ├── [x] ORGANIZER 视图显示角色菜单
 │   │   └── [x] 退出登录清空 session 并跳转 /login
+│   ├── [x] 我的申请页面
+│   │   └── frontend/src/modules/activity-applications/MyApplicationsPage.test.tsx
+│   │   ├── [x] 渲染申请列表
+│   │   ├── [x] 按活动名称搜索
+│   │   └── [x] 切换进行中筛选
+│   ├── [x] 审核待办页面
+│   │   └── frontend/src/modules/approval/ReviewerInboxPage.test.tsx
+│   │   ├── [x] 渲染待办列表
+│   │   ├── [x] 按活动名称 / 组织搜索
+│   │   └── [x] 点击立即审核进入详情路由
+│   ├── [x] 审核详情页面
+│   │   └── frontend/src/modules/approval/ReviewerDetailPage.test.tsx
+│   │   ├── [x] 展示申请详情、附件和审核历史
+│   │   ├── [x] 缺少审核意见时阻止确认
+│   │   ├── [x] 填写审核意见后打开确认弹窗
+│   │   └── [x] 找不到申请时展示空状态
 │   ├── [ ] LoginPage 独立行为测试
 │   ├── [ ] RegisterPage 提交成功/失败交互测试
 │   ├── [ ] MePage 数据展示测试
@@ -83,14 +141,31 @@
 │   │   ├── [x] 跳转 /me
 │   │   ├── [x] 退出登录
 │   │   └── [x] 再访问 /me 跳转 /login
-│   ├── [ ] 真实后端联动 E2E
-│   │   ├── [ ] 启动真实 backend
-│   │   ├── [ ] 连接真实 PostgreSQL
-│   │   ├── [ ] 准备测试数据库或测试 seed
-│   │   ├── [ ] 浏览器注册真实用户
-│   │   ├── [ ] 浏览器登录真实用户
-│   │   ├── [ ] 浏览器修改真实 profile
-│   │   └── [ ] 测试结束清理测试数据
+│   ├── [x] 组织者立项申请前端流程
+│   │   └── frontend/tests/e2e/organizer-reviewer-flow.spec.ts
+│   │   ├── [x] 注入 ORGANIZER 登录态
+│   │   ├── [x] 打开 /applications
+│   │   ├── [x] 进入 /applications/new
+│   │   └── [x] 空表单提交触发表单校验
+│   ├── [x] 审核人处理立项待办前端流程
+│   │   └── frontend/tests/e2e/organizer-reviewer-flow.spec.ts
+│   │   ├── [x] 注入 REVIEWER 登录态
+│   │   ├── [x] 打开 /approvals
+│   │   ├── [x] 进入审核详情
+│   │   ├── [x] 填写审核意见并打开确认弹窗
+│   │   └── [x] 确认通过后返回 /approvals
+│   ├── [x] 真实后端联动 E2E
+│   │   └── frontend/tests/e2e-real/auth-real-backend.spec.ts
+│   │   ├── [x] 启动真实 backend
+│   │   ├── [x] 连接真实 PostgreSQL
+│   │   ├── [x] 按唯一用户名隔离测试数据
+│   │   ├── [x] 浏览器注册真实用户
+│   │   ├── [x] 浏览器登录真实用户
+│   │   ├── [x] 浏览器修改真实 profile
+│   │   ├── [x] 退出后重新登录
+│   │   ├── [x] 验证 profile 数据持久化
+│   │   ├── [x] 测试结束清理测试数据
+│   │   └── [x] 清理后验证测试用户无法登录
 │   ├── [ ] 登录已有账号 E2E
 │   ├── [ ] 权限申请 E2E
 │   ├── [ ] 活动立项 E2E
@@ -102,11 +177,16 @@
 ├── [x] 测试环境配置
 │   ├── [x] backend Vitest node 环境
 │   ├── [x] frontend Vitest jsdom 环境
-│   ├── [x] frontend setup.ts 补 matchMedia / ResizeObserver
+│   ├── [x] frontend setup.ts 补 matchMedia / ResizeObserver / getComputedStyle
 │   ├── [x] Playwright chromium 配置
 │   ├── [x] Vite webServer 自动启动配置
+│   ├── [x] 真实后端联调 Playwright 配置
+│   │   └── frontend/playwright.real.config.ts
+│   ├── [x] 真实后端联调数据清理脚本
+│   │   └── backend/src/test/real-e2e-cleanup.ts
 │   ├── [ ] 独立测试数据库 campus_test
-│   ├── [ ] 后端测试 fixture helper
+│   ├── [x] 后端测试 fixture helper
+│   │   └── backend/src/test/fixtures.ts
 │   ├── [ ] 前端统一 render helper
 │   └── [ ] CI 自动化测试配置
 │

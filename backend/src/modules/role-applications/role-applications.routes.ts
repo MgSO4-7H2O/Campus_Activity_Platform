@@ -8,12 +8,6 @@ import { createRoleApplicationSchema, reviewRoleApplicationSchema } from './role
 const router: ExpressRouter = Router()
 const routeIdSchema = z.string().uuid()
 
-const paginationSchema = z.object({
-  page: z.string().optional().transform(val => (val ? parseInt(val, 10) : 1)),
-  pageSize: z.string().optional().transform(val => (val ? parseInt(val, 10) : 10))
-})
-
-
 /**
  * @swagger
  * /api/v1/role-applications:

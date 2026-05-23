@@ -22,6 +22,7 @@ export default function ReviewerDetailPage() {
   const navigate = useNavigate()
   const [comment, setComment] = useState('')
   const [pending, setPending] = useState<Decision | null>(null)
+  const [decisionToConfirm, setDecisionToConfirm] = useState<Decision | null>(null)
 
   const application = useMemo(() => myApplications.find((a) => a.id === id), [id])
   const todo = useMemo(() => reviewerInbox.find((t) => t.applicationId === id), [id])
@@ -44,27 +45,20 @@ export default function ReviewerDetailPage() {
       message.warning('请填写审核意见')
       return
     }
-    Modal.confirm({
-      title: `确认${DECISION_LABEL[decision]}该申请？`,
-      content: (
-        <div>
-          <Typography.Paragraph>
-            <Typography.Text type="secondary">审核意见：</Typography.Text>
-            {comment}
-          </Typography.Paragraph>
-        </div>
-      ),
-      onOk: () =>
-        new Promise<void>((resolve) => {
-          setPending(decision)
-          setTimeout(() => {
-            setPending(null)
-            message.success(`已${DECISION_LABEL[decision]}`)
-            navigate('/approvals')
-            resolve()
-          }, 400)
-        }),
-    })
+    setDecisionToConfirm(decision)
+  }
+
+  function submitDecision() {
+    if (!decisionToConfirm) return
+
+    const decision = decisionToConfirm
+    setPending(decision)
+    setTimeout(() => {
+      setPending(null)
+      setDecisionToConfirm(null)
+      message.success(`已${DECISION_LABEL[decision]}`)
+      navigate('/approvals')
+    }, 400)
   }
 
   return (
@@ -182,6 +176,19 @@ export default function ReviewerDetailPage() {
           </Card>
         </Col>
       </Row>
+
+      <Modal
+        title={decisionToConfirm ? `确认${DECISION_LABEL[decisionToConfirm]}该申请？` : ''}
+        open={!!decisionToConfirm}
+        confirmLoading={!!pending}
+        onOk={submitDecision}
+        onCancel={() => setDecisionToConfirm(null)}
+      >
+        <Typography.Paragraph>
+          <Typography.Text type="secondary">审核意见：</Typography.Text>
+          {comment}
+        </Typography.Paragraph>
+      </Modal>
     </Space>
   )
 }
