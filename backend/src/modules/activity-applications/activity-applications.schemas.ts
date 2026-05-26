@@ -1,12 +1,14 @@
 import { z } from 'zod'
 
 export const createActivityApplicationSchema = z.object({
-  organizationId: z.string().uuid(),
   title: z.string().max(200),
-  summary: z.string().optional(),
+  organizationId: z.string().uuid(),
+  brief: z.string().min(1),
+  expectedStart: z.string().datetime(),
+  expectedEnd: z.string().datetime(),
+  expectedScale: z.number().int().nonnegative(),
+  budget: z.number().nonnegative(),
   location: z.string().optional(),
-  startTime: z.string().datetime().optional(),
-  endTime: z.string().datetime().optional()
 })
 
 export const updateActivityApplicationSchema = createActivityApplicationSchema.partial()

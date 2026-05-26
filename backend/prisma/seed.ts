@@ -73,15 +73,80 @@ async function main() {
     },
   })
 
-  const defaultOrg = await prisma.organization.upsert({
-    where: { orgCode: 'DEFAULT_ORG' },
+  const rootOrg = await prisma.organization.upsert({
+    where: { orgCode: 'ROOT_ORG' },
     update: {},
     create: {
-      orgCode: 'DEFAULT_ORG',
-      name: '默认组织',
+      orgCode: 'ROOT_ORG',
+      name: '校党委宣传部',
       type: 'ADMINISTRATION',
       status: 'ACTIVE',
-      description: '用于本地开发和测试的默认组织',
+      description: '校级审核组织',
+    },
+  })
+
+  const committeeOrg = await prisma.organization.upsert({
+    where: { orgCode: 'COMM_ORG' },
+    update: {},
+    create: {
+      orgCode: 'COMM_ORG',
+      name: '校团委',
+      type: 'ADMINISTRATION',
+      status: 'ACTIVE',
+      parentOrgId: rootOrg.id,
+      description: '校团委',
+    },
+  })
+
+  const studentAffairsOrg = await prisma.organization.upsert({
+    where: { orgCode: 'STU_AFF' },
+    update: {},
+    create: {
+      orgCode: 'STU_AFF',
+      name: '学工部',
+      type: 'ADMINISTRATION',
+      status: 'ACTIVE',
+      parentOrgId: rootOrg.id,
+      description: '学工部',
+    },
+  })
+
+  const clubCenterOrg = await prisma.organization.upsert({
+    where: { orgCode: 'CLUB_CENTER' },
+    update: {},
+    create: {
+      orgCode: 'CLUB_CENTER',
+      name: '社团指导中心',
+      type: 'ADMINISTRATION',
+      status: 'ACTIVE',
+      parentOrgId: rootOrg.id,
+      description: '社团指导中心',
+    },
+  })
+
+  const csDeptOrg = await prisma.organization.upsert({
+    where: { orgCode: 'CS_DEPT' },
+    update: {},
+    create: {
+      orgCode: 'CS_DEPT',
+      name: '计算机科学与技术学院团委',
+      type: 'ADMINISTRATION',
+      status: 'ACTIVE',
+      parentOrgId: committeeOrg.id,
+      description: '计算机学院团委',
+    },
+  })
+
+  const aiClubOrg = await prisma.organization.upsert({
+    where: { orgCode: 'AI_CLUB' },
+    update: {},
+    create: {
+      orgCode: 'AI_CLUB',
+      name: '人工智能社团',
+      type: 'CLUB',
+      status: 'ACTIVE',
+      parentOrgId: clubCenterOrg.id,
+      description: '人工智能社团',
     },
   })
 
@@ -140,11 +205,7 @@ async function main() {
         ],
       },
       userOrganizations: {
-        create: [
-          {
-            organizationId: defaultOrg.id,
-          },
-        ],
+        create: [{ organizationId: aiClubOrg.id }],
       },
     },
   })
@@ -175,11 +236,7 @@ async function main() {
         ],
       },
       userOrganizations: {
-        create: [
-          {
-            organizationId: defaultOrg.id,
-          },
-        ],
+        create: [{ organizationId: csDeptOrg.id }],
       },
     },
   })
@@ -209,6 +266,33 @@ async function main() {
           },
         ],
       },
+    },
+  })
+
+  const seededApplication = await prisma.activityApplication.create({
+    data: {
+      applicantId: organizer.id,
+      organizationId: aiClubOrg.id,
+      title: '校园编程马拉松',
+      summary: '面向全校的编程实践活动',
+      location: '第一报告厅',
+      startTime: new Date('2026-06-01T08:00:00.000Z'),
+      endTime: new Date('2026-06-01T12:00:00.000Z'),
+      status: 'APPROVED',
+      submittedAt: new Date(),
+      currentLevel: 2,
+    },
+  })
+
+  await prisma.activity.create({
+    data: {
+      applicationId: seededApplication.id,
+      title: seededApplication.title,
+      organizerId: organizer.id,
+      organizationId: aiClubOrg.id,
+      startTime: seededApplication.startTime,
+      endTime: seededApplication.endTime,
+      status: 'PLANNED',
     },
   })
 

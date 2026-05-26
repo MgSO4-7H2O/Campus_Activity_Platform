@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { requireAuth } from '../../shared/middleware/auth.js'
 import { ok } from '../../shared/utils/response.js'
 import { adminService } from './admin.service.js'
-import { createRoleApplicationSchema, reviewRoleApplicationSchema } from './admin.schemas.js'
+import { reviewRoleApplicationSchema, updateUserStatusSchema } from './admin.schemas.js'
 
 const router: ExpressRouter = Router()
 const routeIdSchema = z.string().uuid()
@@ -19,33 +19,10 @@ const routeIdSchema = z.string().uuid()
  *     security:
  *       - bearerAuth: []
  */
-router.post('/role-applications', requireAuth, async (req, res, next) => {
-  try {
-    const body = createRoleApplicationSchema.parse(req.body)
-    const data = await adminService.submitRoleApplication(req.auth!.userId, body)
-    res.status(201).json(ok(data))
-  } catch (error) {
-    next(error)
-  }
-})
-
-/**
- * @swagger
- * /api/v1/admin/role-applications:
- *   get:
- *     summary: 查询权限申请列表
- *     tags:
- *       - Admin
- *     security:
- *       - bearerAuth: []
- */
 router.get('/role-applications', requireAuth, async (req, res, next) => {
   try {
-    const { status } = req.query
-    // For now we don't enforce SYS_ADMIN check in this minimal skeleton, 
-    // but in real app, we should.
-    const data = await adminService.getRoleApplications(status as any)
-    res.json(ok(data))
+    const data = await adminService.listRoleApplications(req.auth!.userId, req.query)
+    res.json(ok(data.items, data.meta))
   } catch (error) {
     next(error)
   }
@@ -67,6 +44,54 @@ router.post('/role-applications/:id/review', requireAuth, async (req, res, next)
     const body = reviewRoleApplicationSchema.parse(req.body)
     const applicationId = routeIdSchema.parse(req.params.id)
     const data = await adminService.reviewRoleApplication(req.auth!.userId, applicationId, body)
+    res.json(ok(data))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/users', requireAuth, async (req, res, next) => {
+  try {
+    const data = await adminService.listUsers(req.auth!.userId, req.query)
+    res.json(ok(data.items, data.meta))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/users/:id', requireAuth, async (req, res, next) => {
+  try {
+    const id = routeIdSchema.parse(req.params.id)
+    const data = await adminService.getUserById(req.auth!.userId, id)
+    res.json(ok(data))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.patch('/users/:id/status', requireAuth, async (req, res, next) => {
+  try {
+    const body = updateUserStatusSchema.parse(req.body)
+    const id = routeIdSchema.parse(req.params.id)
+    const data = await adminService.updateUserStatus(req.auth!.userId, id, body.status)
+    res.json(ok(data))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/system-logs', requireAuth, async (req, res, next) => {
+  try {
+    const data = await adminService.listSystemLogs(req.auth!.userId, req.query)
+    res.json(ok(data.items, data.meta))
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/dashboard', requireAuth, async (req, res, next) => {
+  try {
+    const data = await adminService.getDashboard(req.auth!.userId)
     res.json(ok(data))
   } catch (error) {
     next(error)

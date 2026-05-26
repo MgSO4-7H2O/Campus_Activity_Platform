@@ -4,6 +4,8 @@ import { requireAuth } from '../../shared/middleware/auth.js'
 import { ok } from '../../shared/utils/response.js'
 import { roleApplicationsService } from './role-applications.service.js'
 import { createRoleApplicationSchema, reviewRoleApplicationSchema } from './role-applications.schemas.js'
+import { getUserRoleCodes } from '../../shared/auth/roles.js'
+import { forbidden } from '../../shared/errors/app-error.js'
 
 const router: ExpressRouter = Router()
 const routeIdSchema = z.string().uuid()
@@ -68,6 +70,12 @@ router.get('/:id', requireAuth, async (req, res, next) => {
   try {
     const id = routeIdSchema.parse(req.params.id)
     const data = await roleApplicationsService.getApplicationById(id)
+    if (data.applicantId !== req.auth!.userId) {
+      const roles = await getUserRoleCodes(req.auth!.userId)
+      if (!roles.includes('SYS_ADMIN')) {
+        throw forbidden('无权查看该申请')
+      }
+    }
     res.json(ok(data))
   } catch (error) {
     next(error)
@@ -87,6 +95,10 @@ router.get('/:id', requireAuth, async (req, res, next) => {
  */
 router.post('/:id/review', requireAuth, async (req, res, next) => {
   try {
+    const roles = await getUserRoleCodes(req.auth!.userId)
+    if (!roles.includes('SYS_ADMIN')) {
+      throw forbidden('无权审核权限申请')
+    }
     const body = reviewRoleApplicationSchema.parse(req.body)
     const applicationId = routeIdSchema.parse(req.params.id)
     const data = await roleApplicationsService.reviewRoleApplication(req.auth!.userId, applicationId, body)

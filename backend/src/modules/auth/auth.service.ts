@@ -4,6 +4,7 @@ import { env } from '../../config/env.js'
 import { signJwt } from '../../shared/auth/jwt.js'
 import { hashPassword, verifyPassword } from '../../shared/auth/password.js'
 import { AppError, conflict, unauthorized } from '../../shared/errors/app-error.js'
+import { createSystemLog } from '../../shared/utils/system-log.js'
 import { authRepository } from './auth.repository.js'
 import type { LoginBody, RegisterBody } from './auth.schemas.js'
 
@@ -73,6 +74,11 @@ export const authService = {
 
     const accessToken = signJwt({ sub: user.id }, env.JWT_SECRET, env.JWT_ACCESS_TOKEN_TTL_SECONDS)
 
+    await createSystemLog({
+      userId: user.id,
+      action: 'AUTH_REGISTER',
+    })
+
     return {
       accessToken,
       user: sanitizeUser(user),
@@ -95,6 +101,11 @@ export const authService = {
     }
 
     const accessToken = signJwt({ sub: user.id }, env.JWT_SECRET, env.JWT_ACCESS_TOKEN_TTL_SECONDS)
+
+    await createSystemLog({
+      userId: user.id,
+      action: 'AUTH_LOGIN',
+    })
 
     return {
       accessToken,

@@ -1,5 +1,8 @@
 import prisma from '../../shared/prisma/client.js'
 import { badRequest, notFound } from '../../shared/errors/app-error.js'
+import { pendingTasksService } from '../pending-tasks/pending-tasks.service.js'
+import { notificationsService } from '../notifications/notifications.service.js'
+import { createSystemLog } from '../../shared/utils/system-log.js'
 import type { CreateRoleApplicationBody, ReviewRoleApplicationBody } from './role-applications.schemas.js'
 
 export const roleApplicationsService = {
@@ -25,7 +28,30 @@ export const roleApplicationsService = {
         submittedAt: new Date(),
       },
     })
-    return application
+
+    const admin = await prisma.user.findFirst({
+      where: { userRoles: { some: { role: { code: 'SYS_ADMIN' } } } },
+    })
+
+    if (admin) {
+      await pendingTasksService.createPendingTask({
+        assigneeId: admin.id,
+        taskType: 'ROLE_APPLICATION_REVIEW',
+        relatedResourceType: 'ROLE_APPLICATION',
+        relatedResourceId: application.id,
+        title: `角色申请审核: ${data.appliedRole}`,
+        createdBy: userId,
+      })
+    }
+
+    await createSystemLog({
+      userId,
+      action: 'ROLE_APPLICATION_SUBMIT',
+      resourceType: 'role_application',
+      resourceId: application.id,
+    })
+
+    return this.getApplicationById(application.id)
   },
 
   async getMyApplications(userId: string) {
@@ -143,6 +169,26 @@ export const roleApplicationsService = {
           }
         }
       }
+    })
+
+    await pendingTasksService.markTaskProcessedByResource({
+      relatedResourceType: 'ROLE_APPLICATION',
+      relatedResourceId: applicationId,
+    })
+
+    await notificationsService.notifyUsers([application.applicantId], {
+      title: '权限申请审核结果',
+      content: `你的权限申请已${newStatus === 'APPROVED' ? '通过' : '拒绝'}`,
+      sourceType: 'ROLE_APPLICATION',
+      sourceId: applicationId,
+    })
+
+    await createSystemLog({
+      userId: reviewerId,
+      action: 'ROLE_APPLICATION_REVIEW',
+      resourceType: 'role_application',
+      resourceId: applicationId,
+      details: { decision: data.decision },
     })
 
     return this.getApplicationById(applicationId)

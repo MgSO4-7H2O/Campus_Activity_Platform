@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
-export const getPendingTasksQuerySchema = z.object({
-  status: z.enum(['PENDING', 'PROCESSED', 'CANCELLED']).optional(),
-  taskType: z.enum(['APPLICATION_REVIEW', 'CLOSURE_REVIEW', 'SIGNUP_REVIEW', 'ROLE_APPLICATION_REVIEW']).optional()
+export const routeIdSchema = z.object({
+  id: z.string().uuid(),
+})
+
+export const reviewActivityApplicationSchema = z.object({
+  decision: z.enum(['APPROVE', 'REJECT', 'NEED_MORE']),
+  comment: z.string().optional(),
 })

@@ -3,7 +3,7 @@ import { z } from 'zod'
 export const createRoleApplicationSchema = z.object({
   appliedRole: z.enum(['ORGANIZER', 'REVIEWER', 'SYS_ADMIN']),
   organizationId: z.string().uuid().optional(),
-  reason: z.string().min(1, 'Reason is required')
+  reason: z.string().min(10, 'Reason is required')
 })
 
 export const reviewRoleApplicationSchema = z.object({

@@ -1,12 +1,11 @@
 import { z } from 'zod'
 
-export const createRoleApplicationSchema = z.object({
-  targetRoleCode: z.enum(['ORGANIZER', 'REVIEWER', 'SYS_ADMIN']),
-  organizationId: z.string().uuid().optional(),
-  reason: z.string().max(1000).optional(),
+export const reviewRoleApplicationSchema = z.object({
+  decision: z.enum(['APPROVE', 'REJECT']),
+  comment: z.string().max(1000).optional(),
 })
 
-export const reviewRoleApplicationSchema = z.object({
-  result: z.enum(['APPROVED', 'REJECTED']),
-  reviewComment: z.string().max(1000).optional(),
+export const updateUserStatusSchema = z.object({
+  status: z.enum(['ACTIVE', 'DISABLED']),
+  reason: z.string().max(200).optional(),
 })
