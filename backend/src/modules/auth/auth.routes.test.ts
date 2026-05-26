@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import prisma from '../../shared/prisma/client.js'
 import { createApp } from '../../app.js'
+import { cleanupTestData } from '../../test/fixtures.js'
 
 async function ensureBasicRole() {
   return prisma.role.upsert({
@@ -18,10 +19,8 @@ describe('Auth flow', () => {
   })
 
   beforeEach(async () => {
-    await prisma.userRole.deleteMany()
-    await prisma.studentProfile.deleteMany()
-    await prisma.teacherProfile.deleteMany()
-    await prisma.user.deleteMany()
+    await cleanupTestData()
+    await ensureBasicRole()
   })
 
   it('registers student user', async () => {

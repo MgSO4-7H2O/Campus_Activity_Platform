@@ -13,6 +13,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:real": "playwright test -c playwright.real.config.ts",
     "screenshots": "node scripts/screenshots.mjs",
     "doctor": "node scripts/dev-doctor.mjs"
   },
@@ -54,4 +55,3 @@
     "pnpm": ">=10.0.0"
   }
 }
-
