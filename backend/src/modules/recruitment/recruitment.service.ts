@@ -1,3 +1,5 @@
+import type { Prisma, RecruitmentStatus, RecruitmentTargetUserType } from '@prisma/client'
+
 import prisma from '../../shared/prisma/client.js'
 import { badRequest, notFound } from '../../shared/errors/app-error.js'
 import { buildPaginationMeta, parsePagination } from '../../shared/utils/pagination.js'
@@ -35,9 +37,9 @@ function toDto(recruitment: any, allowedMajors: string[]) {
   }
 }
 
-function toDbTargetUserType(userTypes: string[]) {
+function toDbTargetUserType(userTypes: string[]): RecruitmentTargetUserType {
   if (userTypes.includes('STUDENT') && userTypes.includes('TEACHER')) return 'ALL'
-  return userTypes[0] ?? 'ALL'
+  return (userTypes[0] as RecruitmentTargetUserType | undefined) ?? 'ALL'
 }
 
 export const recruitmentService = {
@@ -81,9 +83,9 @@ export const recruitmentService = {
 
   async listRecruitments(query: Record<string, unknown>) {
     const { page, pageSize } = parsePagination(query)
-    const status = typeof query.status === 'string' ? query.status : undefined
+    const status = typeof query.status === 'string' ? (query.status as RecruitmentStatus) : undefined
 
-    const where = status ? { status } : {}
+    const where: Prisma.RecruitmentWhereInput = status ? { status } : {}
 
     const [items, total] = await prisma.$transaction([
       prisma.recruitment.findMany({

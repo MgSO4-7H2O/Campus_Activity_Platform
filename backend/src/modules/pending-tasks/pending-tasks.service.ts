@@ -1,3 +1,5 @@
+import type { PendingTaskStatus } from '@prisma/client'
+
 import prisma from '../../shared/prisma/client.js'
 import { notFound } from '../../shared/errors/app-error.js'
 
@@ -17,7 +19,7 @@ function toDto(task: any) {
 }
 
 export const pendingTasksService = {
-  async listMyTasks(userId: string, status?: string) {
+  async listMyTasks(userId: string, status?: PendingTaskStatus) {
     const tasks = await prisma.pendingTask.findMany({
       where: {
         assigneeId: userId,

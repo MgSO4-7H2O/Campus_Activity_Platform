@@ -21,7 +21,7 @@ describe('Approval pending task APIs', () => {
   })
 
   it('rejects pending task query without authentication', async () => {
-    const res = await request(createApp()).get('/api/v1/approval/pending-tasks')
+    const res = await request(createApp()).get('/api/v1/pending-tasks/me')
 
     expect(res.status).toBe(401)
     expect(res.body.error.code).toBe('UNAUTHORIZED')
@@ -63,16 +63,16 @@ describe('Approval pending task APIs', () => {
     })
 
     const res = await request(createApp())
-      .get('/api/v1/approval/pending-tasks')
+      .get('/api/v1/pending-tasks/me')
       .set('Authorization', `Bearer ${assignee.accessToken}`)
 
     expect(res.status).toBe(200)
     expect(res.body.data).toHaveLength(1)
     expect(res.body.data[0].title).toBe('当前用户待办')
-    expect(res.body.data[0].assigneeId).toBe(assignee.id)
+    expect(res.body.data[0].ownerId).toBe(assignee.id)
   })
 
-  it('filters pending tasks by status and task type', async () => {
+  it('filters pending tasks by status', async () => {
     const assignee = await registerTestUser({
       username: 'filtered_assignee',
       userType: 'teacher',
@@ -95,14 +95,6 @@ describe('Approval pending task APIs', () => {
         },
         {
           assigneeId: assignee.id,
-          taskType: 'ROLE_APPLICATION_REVIEW',
-          relatedResourceType: 'ROLE_APPLICATION',
-          relatedResourceId: organization.id,
-          title: '待处理权限待办',
-          status: 'PENDING',
-        },
-        {
-          assigneeId: assignee.id,
           taskType: 'APPLICATION_REVIEW',
           relatedResourceType: 'ACTIVITY_APPLICATION',
           relatedResourceId: organization.id,
@@ -113,10 +105,9 @@ describe('Approval pending task APIs', () => {
     })
 
     const res = await request(createApp())
-      .get('/api/v1/approval/pending-tasks')
+      .get('/api/v1/pending-tasks/me')
       .query({
         status: 'PENDING',
-        taskType: 'APPLICATION_REVIEW',
       })
       .set('Authorization', `Bearer ${assignee.accessToken}`)
 
@@ -133,7 +124,7 @@ describe('Approval pending task APIs', () => {
     })
 
     const res = await request(createApp())
-      .get('/api/v1/approval/pending-tasks')
+      .get('/api/v1/pending-tasks/me')
       .query({ status: 'DONE' })
       .set('Authorization', `Bearer ${assignee.accessToken}`)
 

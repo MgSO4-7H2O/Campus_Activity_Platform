@@ -253,7 +253,7 @@ export const signupsService = {
       action: 'SIGNUP_REVIEW',
       resourceType: 'recruitment_signup',
       resourceId: signupId,
-+      details: { decision: input.decision, comment: input.comment },
+      details: { decision: input.decision, comment: input.comment },
     })
 
     return toDto(updated, [])

@@ -31,7 +31,7 @@ describe('Role application APIs', () => {
     const res = await request(createApp()).post('/api/v1/role-applications').send({
       appliedRole: 'ORGANIZER',
       organizationId: organization.id,
-      reason: '申请成为活动负责人',
+      reason: '申请成为活动负责人并维护社团活动',
     })
 
     expect(res.status).toBe(401)
@@ -56,7 +56,7 @@ describe('Role application APIs', () => {
       .send({
         appliedRole: 'ORGANIZER',
         organizationId: organization.id,
-        reason: '申请成为活动负责人',
+        reason: '申请成为活动负责人并维护社团活动',
       })
 
     expect(createRes.status).toBe(201)
@@ -91,7 +91,7 @@ describe('Role application APIs', () => {
       .send({
         appliedRole: 'REVIEWER',
         organizationId: organization.id,
-        reason: '申请成为审核人',
+        reason: '申请成为审核人并参与流程审核',
       })
 
     expect(res.status).toBe(400)
@@ -110,7 +110,7 @@ describe('Role application APIs', () => {
       .set('Authorization', `Bearer ${user.accessToken}`)
       .send({
         appliedRole: 'ORGANIZER',
-        reason: '申请成为活动负责人',
+        reason: '申请成为活动负责人并维护社团活动',
       })
 
     expect(res.status).toBe(400)
@@ -141,7 +141,7 @@ describe('Role application APIs', () => {
       .send({
         appliedRole: 'ORGANIZER',
         organizationId: organization.id,
-        reason: '申请成为活动负责人',
+        reason: '申请成为活动负责人并维护社团活动',
       })
 
     const reviewRes = await request(createApp())

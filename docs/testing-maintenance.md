@@ -2,7 +2,7 @@
 
 本文档用于长期维护项目测试体系。每次新增功能、修改业务流程或补充测试后，都应同步更新本文档和 `docs/TEST_list.md`，确保测试范围、测试结果、运行方式和已知问题保持可追踪。
 
-最近验证日期：2026-05-23
+最近验证日期：2026-06-01
 
 ## 1. 维护目标
 
@@ -28,20 +28,21 @@
 
 | 项目 | 当前结果 | 命令 |
 | --- | ---: | --- |
-| 全仓单元/模块测试 | 54 passed | `pnpm -r test:run` |
+| 全仓单元/模块测试 | 65 passed | `pnpm -r test:run` |
 | shared 测试 | 6 passed | `pnpm --filter @campus-activity/shared test:run` |
-| backend 测试 | 31 passed | `pnpm --filter @campus-activity/server test:run` |
-| frontend 组件/页面测试 | 17 passed | `pnpm --filter @campus-activity/web test:run` |
+| backend 测试 | 39 passed | `pnpm --filter @campus-activity/server test:run` |
+| frontend 组件/页面测试 | 20 passed | `pnpm --filter @campus-activity/web test:run` |
 | frontend E2E | 3 passed | `pnpm --filter @campus-activity/web test:e2e` |
 | 真实后端 + PostgreSQL E2E | 1 passed | `pnpm --filter @campus-activity/web test:e2e:real` |
+| 全仓类型检查 | passed | `pnpm typecheck` |
 | frontend 类型检查 | passed | `pnpm --filter @campus-activity/web typecheck` |
 | frontend lint | passed | `pnpm --filter @campus-activity/web lint` |
 
-最近覆盖率结果：
+最近覆盖率结果为上次生成结果，本轮未重新生成 coverage：
 
 | 包 | 语句覆盖率 | 分支覆盖率 | 说明 |
 | --- | ---: | ---: | --- |
-| backend | 70.67% | 69.94% | 已覆盖 auth、users、role-applications、activity-applications、approval、health 等核心接口 |
+| backend | 70.67% | 69.94% | 上次覆盖率报告；本轮新增 recruitment、signup、checkin、closure、announcements、notifications 等接口测试后需重新生成 |
 | frontend | 24.30% | 56.47% | 新增申请列表、审核待办、审核详情后有所提升；大量 mock 原型页面仍为 0 |
 | shared | 54.76% | 0% | 已覆盖 roles、statuses、http 契约，尚未覆盖 shared 与 Prisma enum 一致性 |
 
@@ -122,12 +123,16 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 | real E2E cleanup | `backend/src/test/real-e2e-cleanup.test.ts` | 删除真实 E2E 测试用户，并验证学生 profile 级联删除 |
 | role-applications | `backend/src/modules/role-applications/role-applications.routes.test.ts` | 未登录拒绝、创建 ORGANIZER 申请、本人申请列表、student 申请 REVIEWER 拒绝、缺组织拒绝、审核通过写角色和组织绑定 |
 | activity-applications | `backend/src/modules/activity-applications/activity-applications.routes.test.ts` | 未登录拒绝、创建草稿、非法组织、草稿更新、非申请人拒绝、提交后创建 reviewer 待办 |
-| approval | `backend/src/modules/approval/approval.routes.test.ts` | 待办鉴权、只返回当前用户待办、按 `status/taskType` 过滤、非法过滤参数拒绝 |
+| approval / pending-tasks | `backend/src/modules/approval/approval.routes.test.ts` | 待办鉴权、只返回当前用户待办、按 `status` 过滤、非法过滤参数拒绝 |
+| announcements / notifications | `backend/src/modules/announcements/announcements.routes.test.ts` | SYS_ADMIN 创建公告草稿、发布公告、写入发布事件、BASIC_USER 收到未读通知、通知列表、单条已读、普通用户创建公告拒绝 |
+| recruitment / signup | `backend/src/modules/recruitment/recruitment-signups.routes.test.ts` | 创建招募草稿、发布招募、活动进入 RECRUITING、学生报名、创建报名审核待办、负责人审核、待办完成、通知申请人 |
+| checkin | `backend/src/modules/checkin/checkin.routes.test.ts` | 创建签到码场次、开启场次、统计已通过报名人数、签到码签到、重复签到冲突、查询签到记录 |
+| closure | `backend/src/modules/closure/closure.routes.test.ts` | 创建结项草稿、提交后创建结项审核待办、审核通过、活动变为 CLOSED、查询审核记录、通知负责人 |
 
 后端测试数据辅助：
 
 - `backend/src/test/fixtures.ts`
-- 提供核心角色初始化、用户/组织/待办等 fixture 创建与清理能力。
+- 提供核心角色初始化、用户/组织/活动等 fixture 创建与清理能力。
 
 ### 6.3 frontend 组件/页面
 
@@ -142,6 +147,8 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 | MyApplicationsPage | `frontend/src/modules/activity-applications/MyApplicationsPage.test.tsx` | 申请列表渲染、按活动名称搜索、进行中筛选 |
 | ReviewerInboxPage | `frontend/src/modules/approval/ReviewerInboxPage.test.tsx` | 待办列表渲染、按活动名称/组织搜索、进入审核详情 |
 | ReviewerDetailPage | `frontend/src/modules/approval/ReviewerDetailPage.test.tsx` | 申请详情、附件、审核历史、空意见阻止确认、填写意见后打开确认弹窗、缺失申请空状态 |
+| NotificationCenterPage | `frontend/src/modules/notifications/NotificationCenterPage.test.tsx` | 未读筛选、单条标记已读、全部标记已读 |
+| CheckinPage | `frontend/src/modules/checkin/CheckinPage.test.tsx` | 已有签到场次、签到码展示、创建手动签到场次 |
 
 前端测试环境：
 
@@ -164,11 +171,14 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 | 模块 | 当前状态 | 后续测试重点 |
 | --- | --- | --- |
 | admin | 未覆盖 | 用户列表、用户状态管理、组织管理、系统日志查询 |
-| recruitment | 未覆盖 | 招募发布、编辑、关闭、限制条件 |
-| signup | 未覆盖 | 报名提交、审核、容量限制、重复报名 |
-| checkin | 未覆盖 | 签到码、签到记录、权限校验 |
-| closure | 未覆盖 | 结项申请、结项审核、状态流转 |
-| notifications | 未覆盖 | 通知创建、读取、未读统计 |
+| organizations | 未覆盖 | 组织列表、组织树、管理员组织绑定/解绑 |
+| activities | 部分间接覆盖 | 活动列表、我的活动、开始活动、结束活动 |
+| recruitment | 部分覆盖 | 编辑、关闭、容量限制、用户类型/年级/专业限制 |
+| signup | 部分覆盖 | 取消报名、重复报名、材料上传、非负责人审核拒绝 |
+| checkin | 部分覆盖 | 关闭场次、手动补签、错误签到码、未通过报名用户拒绝 |
+| closure | 部分覆盖 | 退回补材料、拒绝、多级审核、非负责人提交拒绝 |
+| announcements | 部分覆盖 | 更新、归档、分类与置顶列表细节 |
+| notifications | 部分覆盖 | 全部已读、已读筛选、无权读取其他用户通知 |
 | shared 与 Prisma enum 一致性 | 未覆盖 | 防止前后端状态常量与数据库 enum 漂移 |
 
 ### 7.2 前端
@@ -180,7 +190,8 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 | MePage | 未覆盖 | 数据展示、刷新、空 profile 状态 |
 | MeEditPage / MeProfilePage 保存 | 未覆盖 | 保存成功、保存失败、错误提示 |
 | admin 页面 | 未覆盖 | 用户管理、组织管理、权限审核、系统日志 |
-| activities / recruitment / checkin / closure / notifications | 多数未覆盖 | 列表、详情、表单提交、状态展示、异常状态 |
+| activities / recruitment / closure | 多数未覆盖 | 列表、详情、表单提交、状态展示、异常状态 |
+| checkin / notifications | 部分覆盖 | 接口联调后替换 mock 数据路径、错误状态和空状态 |
 
 ### 7.3 E2E
 

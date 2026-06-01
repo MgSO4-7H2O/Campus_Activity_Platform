@@ -57,16 +57,18 @@ describe('Activity application APIs', () => {
       .send({
         organizationId: organization.id,
         title: '测试立项活动',
-        summary: '测试立项摘要',
+        brief: '测试立项摘要',
         location: '测试教室',
-        startTime: '2026-06-01T01:00:00.000Z',
-        endTime: '2026-06-01T03:00:00.000Z',
+        expectedStart: '2026-06-01T01:00:00.000Z',
+        expectedEnd: '2026-06-01T03:00:00.000Z',
+        expectedScale: 30,
+        budget: 100,
       })
 
     expect(res.status).toBe(201)
     expect(res.body.data.title).toBe('测试立项活动')
     expect(res.body.data.status).toBe('DRAFT')
-    expect(res.body.data.applicantId).toBe(user.id)
+    expect(res.body.data.organizerId).toBe(user.id)
   })
 
   it('rejects invalid organization id while creating application', async () => {
@@ -105,19 +107,24 @@ describe('Activity application APIs', () => {
       .send({
         organizationId: organization.id,
         title: '原始标题',
+        brief: '原始摘要',
+        expectedStart: '2026-06-01T01:00:00.000Z',
+        expectedEnd: '2026-06-01T03:00:00.000Z',
+        expectedScale: 30,
+        budget: 100,
       })
 
     const updateRes = await request(createApp())
-      .put(`/api/v1/activity-applications/${createRes.body.data.id}`)
+      .patch(`/api/v1/activity-applications/${createRes.body.data.id}`)
       .set('Authorization', `Bearer ${user.accessToken}`)
       .send({
         title: '更新后的标题',
-        summary: '更新后的摘要',
+        brief: '更新后的摘要',
       })
 
     expect(updateRes.status).toBe(200)
     expect(updateRes.body.data.title).toBe('更新后的标题')
-    expect(updateRes.body.data.summary).toBe('更新后的摘要')
+    expect(updateRes.body.data.brief).toBe('更新后的摘要')
   })
 
   it('rejects update from non-applicant user', async () => {
@@ -142,10 +149,15 @@ describe('Activity application APIs', () => {
       .send({
         organizationId: organization.id,
         title: '本人立项',
+        brief: '本人立项摘要',
+        expectedStart: '2026-06-01T01:00:00.000Z',
+        expectedEnd: '2026-06-01T03:00:00.000Z',
+        expectedScale: 30,
+        budget: 100,
       })
 
     const updateRes = await request(createApp())
-      .put(`/api/v1/activity-applications/${createRes.body.data.id}`)
+      .patch(`/api/v1/activity-applications/${createRes.body.data.id}`)
       .set('Authorization', `Bearer ${other.accessToken}`)
       .send({
         title: '越权修改',
@@ -172,12 +184,23 @@ describe('Activity application APIs', () => {
       name: '提交测试组织',
       type: 'CLUB',
     })
+    await prisma.userOrganization.create({
+      data: {
+        userId: reviewer.id,
+        organizationId: organization.id,
+      },
+    })
     const createRes = await request(createApp())
       .post('/api/v1/activity-applications')
       .set('Authorization', `Bearer ${applicant.accessToken}`)
       .send({
         organizationId: organization.id,
         title: '待提交活动',
+        brief: '待提交活动摘要',
+        expectedStart: '2026-06-01T01:00:00.000Z',
+        expectedEnd: '2026-06-01T03:00:00.000Z',
+        expectedScale: 30,
+        budget: 100,
       })
 
     const submitRes = await request(createApp())
@@ -185,7 +208,7 @@ describe('Activity application APIs', () => {
       .set('Authorization', `Bearer ${applicant.accessToken}`)
 
     expect(submitRes.status).toBe(200)
-    expect(submitRes.body.data.status).toBe('SUBMITTED')
+    expect(submitRes.body.data.status).toBe('APPROVING')
     expect(submitRes.body.data.submittedAt).toBeTruthy()
 
     const pendingTask = await prisma.pendingTask.findFirst({

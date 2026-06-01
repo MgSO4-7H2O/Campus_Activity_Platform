@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client'
+
 import prisma from '../prisma/client.js'
 
 export async function createSystemLog(input: {
@@ -6,7 +8,7 @@ export async function createSystemLog(input: {
   resourceType?: string | null
   resourceId?: string | null
   ipAddress?: string | null
-  details?: Record<string, unknown> | null
+  details?: Prisma.InputJsonObject | null
 }) {
   await prisma.systemLog.create({
     data: {
@@ -15,7 +17,7 @@ export async function createSystemLog(input: {
       resourceType: input.resourceType ?? null,
       resourceId: input.resourceId ?? null,
       ipAddress: input.ipAddress ?? null,
-      details: input.details ?? null,
+      details: input.details === null ? Prisma.JsonNull : input.details,
     },
   })
 }

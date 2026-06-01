@@ -1,16 +1,18 @@
 测试体系
 ├── 当前验证结果
-│   ├── [x] 单元/模块测试：54 个用例通过
+│   ├── [x] 单元/模块测试：65 个用例通过
 │   │   └── pnpm -r test:run
+│   ├── [x] 类型检查通过
+│   │   └── pnpm typecheck
 │   ├── [x] E2E 测试：mock 前端流程 3 个用例通过
 │   │   └── pnpm --filter @campus-activity/web test:e2e
 │   ├── [x] 真实后端 + PostgreSQL E2E：1 个用例通过
 │   │   └── pnpm --filter @campus-activity/web test:e2e:real
-│   ├── [x] backend 覆盖率已生成
+│   ├── [x] backend 覆盖率报告已存在
 │   │   └── backend/coverage/index.html
-│   ├── [x] frontend 覆盖率已生成：语句覆盖率 24.30%
+│   ├── [x] frontend 覆盖率报告已存在：最近一次语句覆盖率 24.30%
 │   │   └── frontend/coverage/lcov-report/index.html
-│   └── [x] shared 覆盖率已生成
+│   └── [x] shared 覆盖率报告已存在
 │       └── shared/coverage/index.html
 │
 ├── [x] shared 共享契约测试
@@ -72,18 +74,52 @@
 │   │   └── backend/src/modules/approval/approval.routes.test.ts
 │   │   ├── [x] 未登录查询待办失败
 │   │   ├── [x] 只返回分配给当前用户的待办
-│   │   ├── [x] 支持按 status 与 taskType 过滤
+│   │   ├── [x] 支持按 status 过滤
 │   │   └── [x] 不支持的过滤参数返回校验错误
+│   ├── [x] announcements / notifications 公告与通知联动测试
+│   │   └── backend/src/modules/announcements/announcements.routes.test.ts
+│   │   ├── [x] SYS_ADMIN 创建公告草稿
+│   │   ├── [x] 发布公告后写入 publishedAt
+│   │   ├── [x] BASIC_USER 收到未读通知
+│   │   ├── [x] 查询通知列表
+│   │   ├── [x] 标记通知已读后未读数归零
+│   │   └── [x] BASIC_USER 创建公告被拒绝
+│   ├── [x] recruitment / signup 招募报名测试
+│   │   └── backend/src/modules/recruitment/recruitment-signups.routes.test.ts
+│   │   ├── [x] 负责人为已立项活动创建招募草稿
+│   │   ├── [x] 发布招募后活动进入 RECRUITING
+│   │   ├── [x] 招募列表按 PUBLISHED 查询
+│   │   ├── [x] 学生报名后创建 SIGNUP_REVIEW 待办
+│   │   ├── [x] 负责人审核通过报名
+│   │   ├── [x] 审核后待办变为 PROCESSED
+│   │   └── [x] 审核结果通知申请人
+│   ├── [x] checkin 签到测试
+│   │   └── backend/src/modules/checkin/checkin.routes.test.ts
+│   │   ├── [x] 负责人创建签到码场次
+│   │   ├── [x] 开启场次后统计已通过报名人数
+│   │   ├── [x] 已通过报名用户使用签到码签到
+│   │   ├── [x] 重复签到返回冲突
+│   │   └── [x] 负责人查询签到记录
+│   ├── [x] closure 结项测试
+│   │   └── backend/src/modules/closure/closure.routes.test.ts
+│   │   ├── [x] 负责人创建结项草稿
+│   │   ├── [x] 提交结项后创建 CLOSURE_REVIEW 待办
+│   │   ├── [x] REVIEWER 审核通过结项
+│   │   ├── [x] 审核通过后活动状态变为 CLOSED
+│   │   ├── [x] 查询结项审核记录
+│   │   └── [x] 审核结果通知负责人
 │   ├── [ ] admin 后台管理接口测试
 │   │   ├── [ ] 用户列表查询
 │   │   ├── [ ] 用户状态管理
 │   │   ├── [ ] 组织管理
 │   │   └── [ ] 系统日志查询
-│   ├── [ ] recruitment 招募测试
-│   ├── [ ] signup 报名测试
-│   ├── [ ] checkin 签到测试
-│   ├── [ ] closure 结项测试
-│   └── [ ] notifications 通知测试
+│   ├── [ ] organizations 组织管理接口测试
+│   ├── [ ] activities 活动列表/start/finish 接口测试
+│   ├── [ ] recruitment 招募容量、编辑、关闭与限制条件补充测试
+│   ├── [ ] signup 取消报名、重复报名、材料上传补充测试
+│   ├── [ ] checkin 手动签到、关闭场次、错误签到码补充测试
+│   ├── [ ] closure 退回补材料、拒绝、多级审核补充测试
+│   └── [ ] notifications 全部已读、已读筛选补充测试
 │
 ├── [x] frontend 前端组件/页面测试
 │   ├── [x] App 基础页面渲染
@@ -123,12 +159,24 @@
 │   │   ├── [x] 缺少审核意见时阻止确认
 │   │   ├── [x] 填写审核意见后打开确认弹窗
 │   │   └── [x] 找不到申请时展示空状态
+│   ├── [x] 通知中心页面
+│   │   └── frontend/src/modules/notifications/NotificationCenterPage.test.tsx
+│   │   ├── [x] 未读筛选
+│   │   ├── [x] 单条标记已读
+│   │   └── [x] 全部标记已读
+│   ├── [x] 签到页面
+│   │   └── frontend/src/modules/checkin/CheckinPage.test.tsx
+│   │   ├── [x] 展示已有签到场次
+│   │   ├── [x] 展示签到码
+│   │   └── [x] 创建手动签到场次
 │   ├── [ ] LoginPage 独立行为测试
 │   ├── [ ] RegisterPage 提交成功/失败交互测试
 │   ├── [ ] MePage 数据展示测试
 │   ├── [ ] MeEditPage 保存成功/失败交互测试
 │   ├── [ ] MeProfilePage 保存成功/失败交互测试
-│   └── [ ] 其他 mock 原型页面测试
+│   ├── [ ] 招募/报名页面提交交互测试
+│   ├── [ ] 结项页面提交交互测试
+│   └── [ ] admin / sysadmin 页面测试
 │
 ├── [x] frontend E2E 浏览器流程测试
 │   ├── [x] 用户注册-资料-退出闭环

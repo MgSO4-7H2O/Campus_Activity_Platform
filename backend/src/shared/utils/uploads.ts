@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import type { RequestHandler } from 'express'
 import multer from 'multer'
 
 const uploadRoot = path.join(process.cwd(), 'uploads')
@@ -19,8 +20,8 @@ const storage = multer.diskStorage({
   },
 })
 
-export const uploadSingle = multer({ storage }).single('file')
+export const uploadSingle: RequestHandler = multer({ storage }).single('file')
 
-export function toPublicFileUrl(filename: string) {
+export function toPublicFileUrl(filename: string): string {
   return `/uploads/${filename}`
 }

@@ -1,5 +1,5 @@
 import prisma from '../../shared/prisma/client.js'
-import { notFound, badRequest } from '../../shared/errors/app-error.js'
+import { notFound } from '../../shared/errors/app-error.js'
 import { assertUserHasRole } from '../../shared/auth/roles.js'
 import { buildPaginationMeta, parsePagination } from '../../shared/utils/pagination.js'
 import { roleApplicationsService } from '../role-applications/role-applications.service.js'

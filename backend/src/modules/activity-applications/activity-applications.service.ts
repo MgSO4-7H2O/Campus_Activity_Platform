@@ -1,3 +1,5 @@
+import type { ActivityApplicationStatus, Prisma } from '@prisma/client'
+
 import prisma from '../../shared/prisma/client.js'
 import { notFound, badRequest } from '../../shared/errors/app-error.js'
 import { buildPaginationMeta, parsePagination } from '../../shared/utils/pagination.js'
@@ -58,9 +60,9 @@ export const activityApplicationsService = {
 
   async getMyApplications(applicantId: string, query: Record<string, unknown>) {
     const { page, pageSize } = parsePagination(query)
-    const status = typeof query.status === 'string' ? query.status : undefined
+    const status = typeof query.status === 'string' ? (query.status as ActivityApplicationStatus) : undefined
 
-    const where = {
+    const where: Prisma.ActivityApplicationWhereInput = {
       applicantId,
       ...(status ? { status } : {}),
     }
