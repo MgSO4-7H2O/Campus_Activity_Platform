@@ -19,7 +19,8 @@
     "lint": "eslint src",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:perf": "tsx src/performance/perf-smoke.ts"
   },
   "dependencies": {
     "@campus-activity/shared": "workspace:*",

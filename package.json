@@ -7,6 +7,7 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm --filter @campus-activity/shared build && pnpm -r typecheck",
     "test": "pnpm -r test:run",
+    "test:perf": "pnpm --filter @campus-activity/server test:perf",
     "test:e2e": "pnpm --filter @campus-activity/web test:e2e",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "build": "pnpm -r build",
