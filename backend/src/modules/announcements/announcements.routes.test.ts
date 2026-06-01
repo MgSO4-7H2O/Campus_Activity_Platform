@@ -2,6 +2,7 @@ import request from 'supertest'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { createApp } from '../../app.js'
+import prisma from '../../shared/prisma/client.js'
 import {
   cleanupTestData,
   ensureCoreRoles,
@@ -102,5 +103,104 @@ describe('Announcement and notification APIs', () => {
 
     expect(res.status).toBe(403)
     expect(res.body.error.code).toBe('FORBIDDEN')
+  })
+
+  it('filters notifications, marks all read, and rejects reading another user notification', async () => {
+    const owner = await registerTestUser({
+      username: 'notification_owner',
+      userType: 'student',
+      realName: '通知所有者',
+    })
+    const otherUser = await registerTestUser({
+      username: 'notification_other',
+      userType: 'student',
+      realName: '通知其他用户',
+    })
+    const notification = await prisma.notification.create({
+      data: {
+        title: '测试通知',
+        content: '测试通知内容',
+        targetType: 'USER',
+        sourceType: 'SYSTEM',
+      },
+    })
+    const privateNotification = await prisma.notification.create({
+      data: {
+        title: '其他用户通知',
+        content: '其他用户通知内容',
+        targetType: 'USER',
+        sourceType: 'SYSTEM',
+      },
+    })
+    await prisma.notificationReceipt.createMany({
+      data: [
+        {
+          notificationId: notification.id,
+          userId: owner.id,
+          isRead: false,
+        },
+        {
+          notificationId: notification.id,
+          userId: otherUser.id,
+          isRead: false,
+        },
+        {
+          notificationId: privateNotification.id,
+          userId: otherUser.id,
+          isRead: false,
+        },
+      ],
+    })
+
+    const unreadRes = await request(createApp())
+      .get('/api/v1/notifications')
+      .query({ read: 'false' })
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+
+    expect(unreadRes.status).toBe(200)
+    expect(unreadRes.body.data).toHaveLength(1)
+    expect(unreadRes.body.data[0].read).toBe(false)
+
+    const readOtherUserNotificationRes = await request(createApp())
+      .patch(`/api/v1/notifications/${privateNotification.id}/read`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+
+    expect(readOtherUserNotificationRes.status).toBe(404)
+    expect(readOtherUserNotificationRes.body.error.code).toBe('NOT_FOUND')
+
+    const markOneRes = await request(createApp())
+      .patch(`/api/v1/notifications/${notification.id}/read`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+
+    expect(markOneRes.status).toBe(200)
+    expect(markOneRes.body.data.recipientId).toBe(owner.id)
+
+    await prisma.notificationReceipt.update({
+      where: {
+        notificationId_userId: {
+          notificationId: notification.id,
+          userId: owner.id,
+        },
+      },
+      data: {
+        isRead: false,
+        readAt: null,
+      },
+    })
+
+    const markAllRes = await request(createApp())
+      .patch('/api/v1/notifications/read-all')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+
+    expect(markAllRes.status).toBe(204)
+
+    const readRes = await request(createApp())
+      .get('/api/v1/notifications')
+      .query({ read: 'true' })
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+
+    expect(readRes.status).toBe(200)
+    expect(readRes.body.data).toHaveLength(1)
+    expect(readRes.body.data[0].read).toBe(true)
   })
 })

@@ -28,21 +28,21 @@
 
 | 项目 | 当前结果 | 命令 |
 | --- | ---: | --- |
-| 全仓单元/模块测试 | 65 passed | `pnpm -r test:run` |
+| 单元/模块测试合计 | 91 passed | `pnpm --filter @campus-activity/shared test:run` + `pnpm --filter @campus-activity/server test:run` + `pnpm --filter @campus-activity/web test:run` |
 | shared 测试 | 6 passed | `pnpm --filter @campus-activity/shared test:run` |
-| backend 测试 | 39 passed | `pnpm --filter @campus-activity/server test:run` |
-| frontend 组件/页面测试 | 20 passed | `pnpm --filter @campus-activity/web test:run` |
+| backend 测试 | 57 passed | `pnpm --filter @campus-activity/server test:run` |
+| frontend 组件/页面测试 | 28 passed | `pnpm --filter @campus-activity/web test:run` |
 | frontend E2E | 3 passed | `pnpm --filter @campus-activity/web test:e2e` |
 | 真实后端 + PostgreSQL E2E | 1 passed | `pnpm --filter @campus-activity/web test:e2e:real` |
 | 全仓类型检查 | passed | `pnpm typecheck` |
 | 全仓 lint | passed，49 warnings | `pnpm lint` |
 
-最近覆盖率结果为上次生成结果；新增 recruitment、signup、checkin、closure、announcements、notifications、前端通知中心、前端签到等测试后，尚未重新生成 coverage：
+最近覆盖率结果为上次生成结果；新增 admin、organizations、activities、role-applications、recruitment、signup、checkin、announcements、notifications、MePage、activities、recruitment、closure 等测试后，尚未重新生成 coverage：
 
 | 包 | 语句覆盖率 | 分支覆盖率 | 说明 |
 | --- | ---: | ---: | --- |
-| backend | 70.67% | 69.94% | 上次覆盖率报告；本轮新增 recruitment、signup、checkin、closure、announcements、notifications 等接口测试后需重新生成 |
-| frontend | 24.30% | 56.47% | 新增申请列表、审核待办、审核详情后有所提升；大量 mock 原型页面仍为 0 |
+| backend | 70.67% | 69.94% | 历史覆盖率报告；本轮新增大量接口测试后需重新生成 |
+| frontend | 24.30% | 56.47% | 历史覆盖率报告；本轮新增页面测试后需重新生成 |
 | shared | 54.76% | 0% | 已覆盖 roles、statuses、http 契约，尚未覆盖 shared 与 Prisma enum 一致性 |
 
 覆盖率报告位置：
@@ -122,13 +122,16 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 | auth | `backend/src/modules/auth/auth.routes.test.ts` | 学生/教师注册、缺字段、短用户名、重复用户名、登录成功、密码错误、未登录访问 |
 | users | `backend/src/modules/users/users.routes.test.ts` | 基础信息更新、非法 email、无效 token、学生 profile、教师 profile、grade 类型校验 |
 | real E2E cleanup | `backend/src/test/real-e2e-cleanup.test.ts` | 删除真实 E2E 测试用户，并验证学生 profile 级联删除 |
-| role-applications | `backend/src/modules/role-applications/role-applications.routes.test.ts` | 未登录拒绝、创建 ORGANIZER 申请、本人申请列表、student 申请 REVIEWER 拒绝、缺组织拒绝、审核通过写角色和组织绑定 |
+| role-applications | `backend/src/modules/role-applications/role-applications.routes.test.ts` | 未登录拒绝、创建 ORGANIZER 申请、本人申请列表、student 申请 REVIEWER 拒绝、teacher 申请 REVIEWER、缺组织拒绝、非 SYS_ADMIN 审核拒绝、审核通过写角色和组织绑定、审核拒绝、重复审核拒绝 |
 | activity-applications | `backend/src/modules/activity-applications/activity-applications.routes.test.ts` | 未登录拒绝、创建草稿、非法组织、草稿更新、非申请人拒绝、提交后创建 reviewer 待办 |
 | approval / pending-tasks | `backend/src/modules/approval/approval.routes.test.ts` | 待办鉴权、只返回当前用户待办、按 `status` 过滤、非法过滤参数拒绝 |
-| announcements / notifications | `backend/src/modules/announcements/announcements.routes.test.ts` | SYS_ADMIN 创建公告草稿、发布公告、写入发布事件、BASIC_USER 收到未读通知、通知列表、单条已读、普通用户创建公告拒绝 |
-| recruitment / signup | `backend/src/modules/recruitment/recruitment-signups.routes.test.ts` | 创建招募草稿、发布招募、活动进入 RECRUITING、学生报名、创建报名审核待办、负责人审核、待办完成、通知申请人 |
-| checkin | `backend/src/modules/checkin/checkin.routes.test.ts` | 创建签到码场次、开启场次、统计已通过报名人数、签到码签到、重复签到冲突、查询签到记录 |
+| announcements / notifications | `backend/src/modules/announcements/announcements.routes.test.ts` | SYS_ADMIN 创建公告草稿、发布公告、写入发布事件、BASIC_USER 收到未读通知、通知列表、单条已读、全部已读、已读/未读筛选、读取其他用户通知拒绝、普通用户创建公告拒绝 |
+| recruitment / signup | `backend/src/modules/recruitment/recruitment-signups.routes.test.ts` | 创建招募草稿、编辑招募、发布招募、关闭招募、非负责人编辑拒绝、活动进入 RECRUITING、学生报名、重复报名拒绝、取消报名、创建报名审核待办、负责人审核通过/拒绝、非负责人审核拒绝、待办完成、通知申请人 |
+| checkin | `backend/src/modules/checkin/checkin.routes.test.ts` | 创建签到码场次、开启场次、统计已通过报名人数、签到码签到、重复签到冲突、查询签到记录、未开启/已关闭签到拒绝、错误签到码拒绝、未通过报名用户拒绝、手动补签、关闭场次 |
 | closure | `backend/src/modules/closure/closure.routes.test.ts` | 创建结项草稿、提交后创建结项审核待办、审核通过、活动变为 CLOSED、查询审核记录、通知负责人 |
+| admin | `backend/src/modules/admin/admin.routes.test.ts` | 非 SYS_ADMIN 访问拒绝、用户列表和角色过滤、用户详情、用户状态管理、dashboard、系统日志查询 |
+| organizations | `backend/src/modules/orgs/orgs.routes.test.ts` | 组织列表和类型过滤、组织树、组织详情、SYS_ADMIN 创建/更新组织、用户组织绑定/查询/解绑、非 SYS_ADMIN 写操作拒绝 |
+| activities | `backend/src/modules/activities/activities.routes.test.ts` | 活动列表状态/关键词过滤、活动详情、我的活动、开始活动、结束活动、非负责人操作拒绝、非法状态流转拒绝 |
 
 后端测试数据辅助：
 
@@ -143,6 +146,7 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 | RegisterPage | `frontend/src/modules/auth/RegisterPage.test.tsx` | 注册表单字段渲染 |
 | MeEditPage | `frontend/src/modules/users/MeEditPage.test.tsx` | 基础信息编辑字段渲染 |
 | MeProfilePage | `frontend/src/modules/users/MeProfilePage.test.tsx` | 学生/教师扩展资料字段差异 |
+| MePage | `frontend/src/modules/users/MePage.test.tsx` | 账号信息、角色、学生 profile 展示，profile 空状态，刷新重新请求当前用户 |
 | RequireAuth | `frontend/src/shared/auth/guards.test.tsx` | 未登录跳转 `/login`、已登录渲染子内容 |
 | AppLayout | `frontend/src/shared/components/AppLayout.test.tsx` | 多角色视图切换、角色菜单、退出登录清 session 并跳转 |
 | MyApplicationsPage | `frontend/src/modules/activity-applications/MyApplicationsPage.test.tsx` | 申请列表渲染、按活动名称搜索、进行中筛选 |
@@ -150,6 +154,9 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 | ReviewerDetailPage | `frontend/src/modules/approval/ReviewerDetailPage.test.tsx` | 申请详情、附件、审核历史、空意见阻止确认、填写意见后打开确认弹窗、缺失申请空状态 |
 | NotificationCenterPage | `frontend/src/modules/notifications/NotificationCenterPage.test.tsx` | 未读筛选、单条标记已读、全部标记已读 |
 | CheckinPage | `frontend/src/modules/checkin/CheckinPage.test.tsx` | 已有签到场次、签到码展示、创建手动签到场次 |
+| ActivityListPage / ActivityDetailPage | `frontend/src/modules/activities/ActivityPages.test.tsx` | 活动状态筛选、关键词搜索、详情页报名/签到入口、活动不存在空状态 |
+| ActivityRegisterPage / MyRegistrationsPage | `frontend/src/modules/recruitment/RecruitmentPages.test.tsx` | 已发布招募报名表单、未开放报名提示、我的报名状态、通过后去签到入口、拒绝理由 |
+| ClosureApplyPage | `frontend/src/modules/closure/ClosureApplyPage.test.tsx` | 结项表单字段、附件上传区域、活动总结长度校验 |
 
 前端测试环境：
 
@@ -172,16 +179,16 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 | 模块 | 当前覆盖 | 仍缺少的测试重点 |
 | --- | --- | --- |
 | auth / users | 覆盖学生和教师注册、登录、缺字段、短用户名、重复用户名、密码错误、当前用户读取、基础资料更新、学生/教师 profile 更新和部分校验 | 账号禁用后的登录与访问拒绝、更新 email 或 phone 时的唯一性冲突、`/users/me/roles` 路由、profile 缺失或角色不匹配时的错误路径 |
-| role-applications | 覆盖未登录拒绝、ORGANIZER 申请、本人列表、学生申请 REVIEWER 拒绝、缺组织拒绝、审核通过写入角色和组织绑定 | 审核拒绝、重复申请、非 SYS_ADMIN 审核拒绝、已审核申请重复审核、TEACHER 申请 REVIEWER 的成功路径、详情读取权限 |
+| role-applications | 覆盖未登录拒绝、ORGANIZER 申请、本人列表、学生申请 REVIEWER 拒绝、TEACHER 申请 REVIEWER、缺组织拒绝、非 SYS_ADMIN 审核拒绝、审核通过写入角色和组织绑定、审核拒绝、重复审核拒绝 | 重复申请、详情读取权限、admin 聚合审核列表更多过滤条件 |
 | activity-applications / approval | 覆盖创建草稿、非法组织、草稿更新、非申请人更新拒绝、提交后创建 reviewer 待办、待办列表和 status 过滤；service 层覆盖最终通过生成活动 | 附件上传和删除、申请详情权限、审核拒绝、退回补材料、多级审核、路由级“最终通过生成活动”、审核记录读取、非法状态流转 |
-| activities | 仅被招募、签到、结项流程间接使用活动数据 | 活动列表、我的活动、活动详情、开始活动、结束活动、负责人权限、状态约束和非法状态流转 |
-| recruitment | 覆盖负责人创建招募草稿、发布招募、活动进入 RECRUITING、按 PUBLISHED 查询列表 | 招募编辑、关闭、非负责人拒绝、容量限制、报名时间窗口、用户类型限制、年级/专业限制、详情接口和非法状态发布 |
-| signup | 覆盖学生报名、创建 SIGNUP_REVIEW 待办、负责人审核通过、待办完成、通知申请人 | 重复报名、取消报名、审核拒绝、非负责人审核拒绝、报名材料上传、容量满员、非学生报名限制、报名详情权限 |
-| checkin | 覆盖创建 CODE 场次、开启场次、统计已通过报名人数、已通过用户用签到码签到、重复签到冲突、记录查询 | 错误签到码、未开放或已关闭场次签到、未通过报名用户拒绝、关闭场次、手动补签、QRCODE 场次、非负责人创建/查看/补签拒绝 |
+| activities | 覆盖活动列表、关键词和状态过滤、我的活动、活动详情、开始活动、结束活动、负责人权限和非法状态流转 | SYS_ADMIN 代操作、更多状态组合、报名人数聚合边界、分页 metadata |
+| recruitment | 覆盖负责人创建招募草稿、编辑、发布、关闭、非负责人拒绝、活动进入 RECRUITING、按 PUBLISHED 查询列表 | 容量限制、报名时间窗口、用户类型限制、年级/专业限制、详情接口、已发布后编辑拒绝、非法状态发布 |
+| signup | 覆盖学生报名、重复报名拒绝、取消报名、创建 SIGNUP_REVIEW 待办、负责人审核通过/拒绝、非负责人审核拒绝、待办完成、通知申请人 | 报名材料上传、容量满员、非学生报名限制、年级/专业限制命中和拒绝、报名详情权限 |
+| checkin | 覆盖创建 CODE 场次、开启场次、统计已通过报名人数、签到码签到、重复签到冲突、记录查询、错误签到码、未开放/已关闭场次、未通过报名用户拒绝、手动补签、关闭场次 | QRCODE 场次、非负责人创建/查看/补签拒绝、签到时间窗口边界 |
 | closure | 覆盖负责人创建结项草稿、提交后创建 CLOSURE_REVIEW 待办、审核通过、活动变为 CLOSED、记录查询、通知负责人 | 退回补材料、审核拒绝、多级审核、非负责人提交/查看拒绝、附件上传、草稿更新、重复结项、非法活动状态结项 |
-| announcements / notifications | 覆盖 SYS_ADMIN 创建公告草稿、发布公告、发布事件、BASIC_USER 收到未读通知、通知列表、单条已读、普通用户创建公告拒绝 | 公告更新、归档、分类筛选、置顶排序、公告详情、全部已读、已读筛选、未读数量、读取其他用户通知拒绝、通知分页 |
-| admin | 未覆盖 | 角色申请列表与审核聚合、用户列表、用户详情、用户状态管理、系统日志、dashboard、管理员权限拒绝路径 |
-| organizations | 未覆盖 | 组织列表、组织树、组织详情、创建/更新组织、用户组织绑定/解绑、查询用户组织、管理员权限校验 |
+| announcements / notifications | 覆盖 SYS_ADMIN 创建公告草稿、发布公告、发布事件、BASIC_USER 收到未读通知、通知列表、单条已读、全部已读、已读/未读筛选、读取其他用户通知拒绝、普通用户创建公告拒绝 | 公告更新、归档、分类筛选、置顶排序、公告详情、通知分页 |
+| admin | 覆盖非 SYS_ADMIN 拒绝、用户列表、角色过滤、用户详情、用户状态管理、dashboard、系统日志查询 | 角色申请列表与审核聚合、用户列表分页和状态过滤、用户不存在、系统日志多条件过滤 |
+| organizations | 覆盖组织列表和类型过滤、组织树、组织详情、SYS_ADMIN 创建/更新组织、用户组织绑定/查询/解绑、非 SYS_ADMIN 写操作拒绝 | 组织状态过滤、父组织不存在、重复绑定拒绝、解绑不存在关系、组织不存在 |
 | pending-tasks | 覆盖 `/pending-tasks/me` 的鉴权、当前用户过滤、status 过滤和非法过滤参数 | 待办详情、待办 process、无权查看或处理、不同 taskType 的处理入口一致性 |
 | shared 与 Prisma enum 一致性 | shared 仅覆盖前端共享常量自身存在 | 防止 shared 状态常量、角色常量与 Prisma enum 漂移的契约测试 |
 | 测试数据隔离 | 后端模块测试用例前清理 fixture；真实 E2E 创建唯一 `real...` 用户并在用例后清理 | 独立 `campus_test` 数据库、backend suite 结束后的最终清理检查、真实 E2E 扩展到活动/待办/报名/签到/结项后的多资源清理 |
@@ -192,14 +199,14 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 | --- | --- | --- |
 | LoginPage | 仅在 `App.test.tsx` 中覆盖登录表单基础渲染 | 登录成功、登录失败、错误提示、loading、登录后回跳来源、已登录访问登录页行为 |
 | RegisterPage | 覆盖注册字段渲染 | 字段校验、提交成功、提交失败、重复用户名错误、不同身份默认 profile 流向 |
-| MePage | 未覆盖 | 当前用户信息展示、角色展示、profile 为空、刷新失败、跳转编辑入口 |
+| MePage | 覆盖当前用户信息展示、角色展示、学生 profile 展示、profile 为空、刷新重新请求 | 刷新失败提示、教师 profile 展示、跳转编辑入口 |
 | MeEditPage / MeProfilePage | 覆盖基础字段和学生/教师 profile 字段差异 | 保存成功、保存失败、API error、loading、服务端校验错误、保存后跳转或提示 |
 | ActivityApplyPage / MyApplicationsPage | 我的申请覆盖列表渲染、搜索、进行中筛选 | 新建立项表单提交、草稿保存、附件、字段校验、API error、状态标签和空列表 |
 | ReviewerInboxPage / ReviewerDetailPage | 覆盖 mock 待办列表、搜索、进入详情、详情展示、附件、审核历史、空意见阻止通过、确认弹窗和空状态 | 真实 API 数据路径、审核拒绝、退回补材料、loading、error、不同状态下按钮禁用 |
-| ActivityListPage / ActivityDetailPage / MyActivitiesPage | 未覆盖 | 活动列表、筛选、详情、报名入口、我的活动、开始/结束按钮、不同活动状态展示和权限差异 |
-| RecruitmentEditPage / ActivityRegisterPage / MyRegistrationsPage / RegistrationReviewPage | 未覆盖 | 招募创建/编辑/发布/关闭、报名表单、我的报名、报名审核、容量满员和限制条件提示 |
+| ActivityListPage / ActivityDetailPage / MyActivitiesPage | 覆盖活动列表状态筛选、关键词搜索、详情页报名/签到入口、活动不存在空状态 | 我的活动、开始/结束按钮、不同活动状态展示和权限差异、真实 API 数据路径 |
+| RecruitmentEditPage / ActivityRegisterPage / MyRegistrationsPage / RegistrationReviewPage | 覆盖已发布招募报名表单、未开放报名提示、我的报名状态、审核通过后的去签到入口、拒绝理由 | 招募创建/编辑/发布/关闭、真实报名提交、报名审核、容量满员和限制条件提示 |
 | CheckinPage | 覆盖 mock 已有场次、签到码展示、创建手动签到场次 | 真实 API 数据路径、打开/关闭场次、错误签到码、手动补签、签到记录空态和失败态 |
-| ClosureApplyPage / ClosureInboxPage / ClosureReviewPage | 未覆盖 | 结项申请提交、附件、审核列表、审核详情、通过/拒绝/退回、表单校验和错误态 |
+| ClosureApplyPage / ClosureInboxPage / ClosureReviewPage | 覆盖结项申请字段渲染、附件上传区域、活动总结长度校验 | 成功提交、审核列表、审核详情、通过/拒绝/退回、真实 API 错误态 |
 | NotificationCenterPage | 覆盖 mock 未读筛选、单条已读、全部已读 | 真实 API 数据路径、分页、未读数量同步、全部已读失败、空态、已读筛选 |
 | Admin / Sysadmin / Organizations / Permissions / Tasks | 基本未覆盖 | 用户管理、用户详情、组织管理、系统日志、公告管理、权限申请、角色审核、待办中心 |
 

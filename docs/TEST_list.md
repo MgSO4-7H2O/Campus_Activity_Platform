@@ -1,7 +1,9 @@
 测试体系
 ├── 当前验证结果
-│   ├── [x] 单元/模块测试：65 个用例通过
-│   │   └── pnpm -r test:run
+│   ├── [x] 单元/模块测试：91 个用例通过
+│   │   ├── shared：6 passed
+│   │   ├── backend：57 passed
+│   │   └── frontend：28 passed
 │   ├── [x] 类型检查通过
 │   │   └── pnpm typecheck
 │   ├── [x] E2E 测试：mock 前端流程 3 个用例通过
@@ -60,8 +62,12 @@
 │   │   ├── [x] 未登录提交申请失败
 │   │   ├── [x] 创建 ORGANIZER 申请并查询本人申请列表
 │   │   ├── [x] student 申请 REVIEWER 失败
+│   │   ├── [x] teacher 申请 REVIEWER 成功
 │   │   ├── [x] ORGANIZER 申请缺少组织绑定失败
-│   │   └── [x] 审核通过后写入 user_roles 与 user_organizations
+│   │   ├── [x] 审核通过后写入 user_roles 与 user_organizations
+│   │   ├── [x] 非 SYS_ADMIN 审核失败
+│   │   ├── [x] 审核拒绝
+│   │   └── [x] 已审核申请重复审核失败
 │   ├── [x] activity-applications 活动立项接口测试
 │   │   └── backend/src/modules/activity-applications/activity-applications.routes.test.ts
 │   │   ├── [x] 未登录创建失败
@@ -83,23 +89,39 @@
 │   │   ├── [x] BASIC_USER 收到未读通知
 │   │   ├── [x] 查询通知列表
 │   │   ├── [x] 标记通知已读后未读数归零
-│   │   └── [x] BASIC_USER 创建公告被拒绝
+│   │   ├── [x] BASIC_USER 创建公告被拒绝
+│   │   ├── [x] 按未读 / 已读状态筛选通知
+│   │   ├── [x] 全部标记已读
+│   │   └── [x] 读取其他用户通知失败
 │   ├── [x] recruitment / signup 招募报名测试
 │   │   └── backend/src/modules/recruitment/recruitment-signups.routes.test.ts
 │   │   ├── [x] 负责人为已立项活动创建招募草稿
 │   │   ├── [x] 发布招募后活动进入 RECRUITING
 │   │   ├── [x] 招募列表按 PUBLISHED 查询
+│   │   ├── [x] 编辑招募草稿
+│   │   ├── [x] 关闭招募
+│   │   ├── [x] 非负责人编辑招募失败
 │   │   ├── [x] 学生报名后创建 SIGNUP_REVIEW 待办
 │   │   ├── [x] 负责人审核通过报名
 │   │   ├── [x] 审核后待办变为 PROCESSED
-│   │   └── [x] 审核结果通知申请人
+│   │   ├── [x] 审核结果通知申请人
+│   │   ├── [x] 重复报名失败
+│   │   ├── [x] 申请人取消报名
+│   │   ├── [x] 非负责人审核报名失败
+│   │   └── [x] 负责人审核拒绝报名
 │   ├── [x] checkin 签到测试
 │   │   └── backend/src/modules/checkin/checkin.routes.test.ts
 │   │   ├── [x] 负责人创建签到码场次
 │   │   ├── [x] 开启场次后统计已通过报名人数
 │   │   ├── [x] 已通过报名用户使用签到码签到
 │   │   ├── [x] 重复签到返回冲突
-│   │   └── [x] 负责人查询签到记录
+│   │   ├── [x] 负责人查询签到记录
+│   │   ├── [x] 未开启场次签到失败
+│   │   ├── [x] 错误签到码失败
+│   │   ├── [x] 未通过报名用户签到失败
+│   │   ├── [x] 手动补签
+│   │   ├── [x] 关闭签到场次
+│   │   └── [x] 已关闭场次签到失败
 │   ├── [x] closure 结项测试
 │   │   └── backend/src/modules/closure/closure.routes.test.ts
 │   │   ├── [x] 负责人创建结项草稿
@@ -108,18 +130,35 @@
 │   │   ├── [x] 审核通过后活动状态变为 CLOSED
 │   │   ├── [x] 查询结项审核记录
 │   │   └── [x] 审核结果通知负责人
-│   ├── [ ] admin 后台管理接口测试
-│   │   ├── [ ] 用户列表查询
-│   │   ├── [ ] 用户状态管理
-│   │   ├── [ ] 组织管理
-│   │   └── [ ] 系统日志查询
-│   ├── [ ] organizations 组织管理接口测试
-│   ├── [ ] activities 活动列表/start/finish 接口测试
-│   ├── [ ] recruitment 招募容量、编辑、关闭与限制条件补充测试
-│   ├── [ ] signup 取消报名、重复报名、材料上传补充测试
-│   ├── [ ] checkin 手动签到、关闭场次、错误签到码补充测试
+│   ├── [x] admin 后台管理接口测试
+│   │   └── backend/src/modules/admin/admin.routes.test.ts
+│   │   ├── [x] 非 SYS_ADMIN 访问用户管理失败
+│   │   ├── [x] 用户列表查询与角色过滤
+│   │   ├── [x] 用户详情查询
+│   │   ├── [x] 用户状态管理
+│   │   ├── [x] dashboard 汇总
+│   │   └── [x] 系统日志查询
+│   ├── [x] organizations 组织管理接口测试
+│   │   └── backend/src/modules/orgs/orgs.routes.test.ts
+│   │   ├── [x] 组织列表与类型过滤
+│   │   ├── [x] 组织树
+│   │   ├── [x] 组织详情
+│   │   ├── [x] SYS_ADMIN 创建 / 更新组织
+│   │   ├── [x] 用户组织绑定 / 查询 / 解绑
+│   │   └── [x] 非 SYS_ADMIN 写操作失败
+│   ├── [x] activities 活动列表/start/finish 接口测试
+│   │   └── backend/src/modules/activities/activities.routes.test.ts
+│   │   ├── [x] 活动列表按状态和关键词过滤
+│   │   ├── [x] 活动详情
+│   │   ├── [x] 我的活动
+│   │   ├── [x] 开始活动
+│   │   ├── [x] 结束活动
+│   │   ├── [x] 非负责人状态流转失败
+│   │   └── [x] 非法状态流转失败
+│   ├── [ ] recruitment 招募容量与限制条件补充测试
+│   ├── [ ] signup 材料上传、容量满员、限制条件补充测试
 │   ├── [ ] closure 退回补材料、拒绝、多级审核补充测试
-│   └── [ ] notifications 全部已读、已读筛选补充测试
+│   └── [ ] checkin QRCODE 与非负责人补签 / 查看补充测试
 │
 ├── [x] frontend 前端组件/页面测试
 │   ├── [x] App 基础页面渲染
@@ -134,6 +173,11 @@
 │   │   └── frontend/src/modules/users/MeProfilePage.test.tsx
 │   │   ├── [x] student 显示 college/major/grade/className
 │   │   └── [x] teacher 显示 departmentName/jobTitle
+│   ├── [x] 个人信息页
+│   │   └── frontend/src/modules/users/MePage.test.tsx
+│   │   ├── [x] 展示账号信息、角色和学生 profile
+│   │   ├── [x] profile 为空时展示空状态
+│   │   └── [x] 点击刷新重新请求当前用户
 │   ├── [x] 路由守卫
 │   │   └── frontend/src/shared/auth/guards.test.tsx
 │   │   ├── [x] 未登录访问受保护页面跳 /login
@@ -169,13 +213,31 @@
 │   │   ├── [x] 展示已有签到场次
 │   │   ├── [x] 展示签到码
 │   │   └── [x] 创建手动签到场次
+│   ├── [x] 活动列表 / 详情页面
+│   │   └── frontend/src/modules/activities/ActivityPages.test.tsx
+│   │   ├── [x] 活动列表状态筛选
+│   │   ├── [x] 活动列表关键词搜索
+│   │   ├── [x] 活动详情展示报名和签到入口
+│   │   └── [x] 活动不存在空状态
+│   ├── [x] 招募报名 / 我的报名页面
+│   │   └── frontend/src/modules/recruitment/RecruitmentPages.test.tsx
+│   │   ├── [x] 已发布招募报名表单
+│   │   ├── [x] 未开放报名提示
+│   │   ├── [x] 我的报名状态展示
+│   │   ├── [x] 审核通过后显示去签到入口
+│   │   └── [x] 拒绝理由展示
+│   ├── [x] 结项申请页面
+│   │   └── frontend/src/modules/closure/ClosureApplyPage.test.tsx
+│   │   ├── [x] 结项表单字段渲染
+│   │   ├── [x] 附件上传区域渲染
+│   │   └── [x] 活动总结长度校验
 │   ├── [ ] LoginPage 独立行为测试
 │   ├── [ ] RegisterPage 提交成功/失败交互测试
-│   ├── [ ] MePage 数据展示测试
+│   ├── [x] MePage 数据展示测试
 │   ├── [ ] MeEditPage 保存成功/失败交互测试
 │   ├── [ ] MeProfilePage 保存成功/失败交互测试
-│   ├── [ ] 招募/报名页面提交交互测试
-│   ├── [ ] 结项页面提交交互测试
+│   ├── [ ] 招募/报名真实提交交互测试
+│   ├── [ ] 结项页面成功提交交互测试
 │   └── [ ] admin / sysadmin 页面测试
 │
 ├── [x] frontend E2E 浏览器流程测试
