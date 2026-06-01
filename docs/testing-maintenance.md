@@ -35,7 +35,8 @@
 | frontend E2E | 3 passed | `pnpm --filter @campus-activity/web test:e2e` |
 | 真实后端 + PostgreSQL E2E | 1 passed | `pnpm --filter @campus-activity/web test:e2e:real` |
 | 全仓类型检查 | passed | `pnpm typecheck` |
-| 全仓 lint | passed，49 warnings | `pnpm lint` |
+| frontend 类型检查 | passed | `pnpm --filter @campus-activity/web typecheck` |
+| frontend lint | passed | `pnpm --filter @campus-activity/web lint` |
 
 最近覆盖率结果为上次生成结果，本轮未重新生成 coverage：
 
@@ -81,9 +82,7 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 
 真实联调 E2E 当前使用 `backend/.env` 指向的 PostgreSQL。运行前需保证数据库结构和基础 seed 已准备好。测试创建的 `real...` 用户会在测试结束后由 `backend/src/test/real-e2e-cleanup.ts` 清理。
 
-注意：项目 `engines` 要求 Node.js `>=22.0.0`。本地测试环境应使用 Node.js 22 或更高版本，避免包管理器和依赖工具链出现 engine warning。
-
-后端 Vitest 接口测试通过 `backend/src/test/fixtures.ts` 中的 `cleanupTestData()` 在每个用例前清理核心业务表，保证用例之间的数据隔离。真实联调 E2E 使用唯一 `real...` 用户名、邮箱和手机号创建测试数据，并在测试结束后调用 `backend/src/test/real-e2e-cleanup.ts` 删除测试用户及其 profile。
+注意：项目 `engines` 要求 Node.js `>=22.0.0`。当前验证环境出现过 Node.js `v18.20.8` 的 warning，命令可运行但环境不完全一致。后续应统一到 Node.js 22。
 
 ## 5. 常用测试命令
 
@@ -211,13 +210,12 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 
 ## 8. 已知问题与风险
 
-1. 后端 lint 当前通过但仍有 49 条 `@typescript-eslint/no-explicit-any` warning，主要集中在新业务 service 的 DTO 映射和 Prisma 查询结果处理。
+1. Node.js 版本不一致：项目要求 `>=22.0.0`，当前验证环境曾出现 `v18.20.8` warning。
 2. 前端 `AppLayout.test.tsx` 仍会输出 React `act(...)` warning。测试通过，但后续应收敛异步状态更新断言。
 3. Ant Design v5 在 React 19 下会输出兼容 warning。测试通过，但需要关注 UI 组件库升级或兼容适配。
-4. Playwright webServer 会输出 `NO_COLOR` 被 `FORCE_COLOR` 覆盖的 warning。测试通过，该 warning 不影响断言结果。
-5. 后端测试和真实联调 E2E 当前使用 `backend/.env` 指向的数据库，尚未隔离到独立 `campus_test`。
-6. 真实联调 E2E 只允许清理 `real...` 前缀测试用户名，避免误删非测试用户；若未来真实 E2E 创建活动、待办等受限外键数据，需要同步扩展清理脚本。
-7. Codex 沙箱内 `tsx` 创建 IPC pipe 可能触发 `listen EPERM`，真实 E2E 需要在非沙箱环境运行。
+4. 后端测试和真实联调 E2E 当前使用 `backend/.env` 指向的数据库，尚未隔离到独立 `campus_test`。
+5. 真实联调 E2E 只允许清理 `real...` 前缀测试用户名，避免误删非测试用户；若未来真实 E2E 创建活动、待办等受限外键数据，需要同步扩展清理脚本。
+6. Codex 沙箱内 `tsx` 创建 IPC pipe 会触发 `listen EPERM`，真实 E2E 需要在非沙箱环境运行。
 
 ## 9. 新功能测试维护流程
 
