@@ -73,6 +73,37 @@ describe('Role application APIs', () => {
     expect(listRes.body.data[0].organizationName).toBe('测试社团')
   })
 
+  it('rejects duplicate active role application for the same role and organization', async () => {
+    const user = await registerTestUser({
+      username: 'role_dup_app',
+      userType: 'student',
+      realName: '重复权限申请人',
+    })
+    const organization = await createTestOrganization({
+      orgCode: 'TEST_ROLE_ORG_DUP',
+      name: '重复申请组织',
+      type: 'CLUB',
+    })
+    const body = {
+      appliedRole: 'ORGANIZER',
+      organizationId: organization.id,
+      reason: '申请成为活动负责人并维护社团活动',
+    }
+
+    const firstRes = await request(createApp())
+      .post('/api/v1/role-applications')
+      .set('Authorization', `Bearer ${user.accessToken}`)
+      .send(body)
+    const duplicateRes = await request(createApp())
+      .post('/api/v1/role-applications')
+      .set('Authorization', `Bearer ${user.accessToken}`)
+      .send(body)
+
+    expect(firstRes.status).toBe(201)
+    expect(duplicateRes.status).toBe(409)
+    expect(duplicateRes.body.error.code).toBe('CONFLICT')
+  })
+
   it('rejects reviewer application from a student user', async () => {
     const user = await registerTestUser({
       username: 'student_reviewer',

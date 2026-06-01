@@ -116,6 +116,168 @@ describe('Approval pending task APIs', () => {
     expect(res.body.data[0].title).toBe('待处理立项待办')
   })
 
+  it('returns pending task detail for assignee', async () => {
+    const assignee = await registerTestUser({
+      username: 'detail_assignee',
+      userType: 'teacher',
+      realName: '详情待办处理人',
+    })
+    const organization = await createTestOrganization({
+      orgCode: 'TEST_TASK_DETAIL_RESOURCE',
+      name: '待办详情资源组织',
+      type: 'CLUB',
+    })
+    const task = await prisma.pendingTask.create({
+      data: {
+        assigneeId: assignee.id,
+        taskType: 'APPLICATION_REVIEW',
+        relatedResourceType: 'ACTIVITY_APPLICATION',
+        relatedResourceId: organization.id,
+        title: '待办详情',
+      },
+    })
+
+    const res = await request(createApp())
+      .get(`/api/v1/pending-tasks/${task.id}`)
+      .set('Authorization', `Bearer ${assignee.accessToken}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.id).toBe(task.id)
+    expect(res.body.data.title).toBe('待办详情')
+    expect(res.body.data.ownerId).toBe(assignee.id)
+  })
+
+  it('rejects pending task detail for non-assignee', async () => {
+    const assignee = await registerTestUser({
+      username: 'fd_assignee',
+      userType: 'teacher',
+      realName: '详情待办处理人',
+    })
+    const viewer = await registerTestUser({
+      username: 'fd_viewer',
+      userType: 'teacher',
+      realName: '无权查看人',
+    })
+    const organization = await createTestOrganization({
+      orgCode: 'TASK_FD',
+      name: '无权详情资源组织',
+      type: 'CLUB',
+    })
+    const task = await prisma.pendingTask.create({
+      data: {
+        assigneeId: assignee.id,
+        taskType: 'APPLICATION_REVIEW',
+        relatedResourceType: 'ACTIVITY_APPLICATION',
+        relatedResourceId: organization.id,
+        title: '无权查看待办',
+      },
+    })
+
+    const res = await request(createApp())
+      .get(`/api/v1/pending-tasks/${task.id}`)
+      .set('Authorization', `Bearer ${viewer.accessToken}`)
+
+    expect(res.status).toBe(403)
+    expect(res.body.error.code).toBe('FORBIDDEN')
+  })
+
+  it('processes pending task for assignee', async () => {
+    const assignee = await registerTestUser({
+      username: 'process_assignee',
+      userType: 'teacher',
+      realName: '待办处理人',
+    })
+    const organization = await createTestOrganization({
+      orgCode: 'TEST_TASK_PROCESS_RESOURCE',
+      name: '待办处理资源组织',
+      type: 'CLUB',
+    })
+    const task = await prisma.pendingTask.create({
+      data: {
+        assigneeId: assignee.id,
+        taskType: 'APPLICATION_REVIEW',
+        relatedResourceType: 'ACTIVITY_APPLICATION',
+        relatedResourceId: organization.id,
+        title: '可处理待办',
+      },
+    })
+
+    const res = await request(createApp())
+      .patch(`/api/v1/pending-tasks/${task.id}/process`)
+      .set('Authorization', `Bearer ${assignee.accessToken}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.status).toBe('PROCESSED')
+    expect(res.body.data.processedAt).toBeTruthy()
+  })
+
+  it('rejects pending task process for non-assignee', async () => {
+    const assignee = await registerTestUser({
+      username: 'fp_assignee',
+      userType: 'teacher',
+      realName: '待办处理人',
+    })
+    const viewer = await registerTestUser({
+      username: 'fp_viewer',
+      userType: 'teacher',
+      realName: '无权处理人',
+    })
+    const organization = await createTestOrganization({
+      orgCode: 'TASK_FP',
+      name: '无权处理资源组织',
+      type: 'CLUB',
+    })
+    const task = await prisma.pendingTask.create({
+      data: {
+        assigneeId: assignee.id,
+        taskType: 'APPLICATION_REVIEW',
+        relatedResourceType: 'ACTIVITY_APPLICATION',
+        relatedResourceId: organization.id,
+        title: '无权处理待办',
+      },
+    })
+
+    const res = await request(createApp())
+      .patch(`/api/v1/pending-tasks/${task.id}/process`)
+      .set('Authorization', `Bearer ${viewer.accessToken}`)
+
+    expect(res.status).toBe(403)
+    expect(res.body.error.code).toBe('FORBIDDEN')
+  })
+
+  it('rejects repeated pending task processing', async () => {
+    const assignee = await registerTestUser({
+      username: 'repeat_assignee',
+      userType: 'teacher',
+      realName: '重复处理人',
+    })
+    const organization = await createTestOrganization({
+      orgCode: 'TASK_RP',
+      name: '重复处理资源组织',
+      type: 'CLUB',
+    })
+    const task = await prisma.pendingTask.create({
+      data: {
+        assigneeId: assignee.id,
+        taskType: 'APPLICATION_REVIEW',
+        relatedResourceType: 'ACTIVITY_APPLICATION',
+        relatedResourceId: organization.id,
+        title: '重复处理待办',
+      },
+    })
+
+    await request(createApp())
+      .patch(`/api/v1/pending-tasks/${task.id}/process`)
+      .set('Authorization', `Bearer ${assignee.accessToken}`)
+
+    const res = await request(createApp())
+      .patch(`/api/v1/pending-tasks/${task.id}/process`)
+      .set('Authorization', `Bearer ${assignee.accessToken}`)
+
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('BAD_REQUEST')
+  })
+
   it('rejects unsupported pending task query filters', async () => {
     const assignee = await registerTestUser({
       username: 'invalid_filter',

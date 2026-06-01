@@ -2,7 +2,7 @@
 
 本文档用于长期维护项目测试体系。每次新增功能、修改业务流程或补充测试后，都应同步更新本文档和 `docs/TEST_list.md`，确保测试范围、测试结果、运行方式和已知问题保持可追踪。
 
-最近验证日期：2026-06-01
+最近验证日期：2026-06-02
 
 ## 1. 维护目标
 
@@ -28,22 +28,22 @@
 
 | 项目 | 当前结果 | 命令 |
 | --- | ---: | --- |
-| 单元/模块测试合计 | 91 passed | `pnpm --filter @campus-activity/shared test:run` + `pnpm --filter @campus-activity/server test:run` + `pnpm --filter @campus-activity/web test:run` |
-| shared 测试 | 6 passed | `pnpm --filter @campus-activity/shared test:run` |
-| backend 测试 | 57 passed | `pnpm --filter @campus-activity/server test:run` |
-| frontend 组件/页面测试 | 28 passed | `pnpm --filter @campus-activity/web test:run` |
+| 单元/模块测试合计 | 153 passed | `pnpm --filter @campus-activity/shared test:run` + `pnpm --filter @campus-activity/server test:run` + `pnpm --filter @campus-activity/web test:run` |
+| shared 测试 | 7 passed | `pnpm --filter @campus-activity/shared test:run` |
+| backend 测试 | 98 passed | `pnpm --filter @campus-activity/server test:run` |
+| frontend 组件/页面测试 | 48 passed | `pnpm --filter @campus-activity/web test:run` |
 | frontend E2E | 3 passed | `pnpm --filter @campus-activity/web test:e2e` |
-| 真实后端 + PostgreSQL E2E | 1 passed | `pnpm --filter @campus-activity/web test:e2e:real` |
+| 真实后端 + PostgreSQL E2E | 2 passed | `pnpm --filter @campus-activity/web test:e2e:real` |
 | 全仓类型检查 | passed | `pnpm typecheck` |
 | 全仓 lint | passed，49 warnings | `pnpm lint` |
 
-最近覆盖率结果为上次生成结果；新增 admin、organizations、activities、role-applications、recruitment、signup、checkin、announcements、notifications、MePage、activities、recruitment、closure 等测试后，尚未重新生成 coverage：
+最近覆盖率结果为上次生成结果；新增 shared/Prisma enum 契约、admin、organizations、activities、role-applications、activity-applications 附件/审核权限/审核拒绝/退回/最终通过/审核记录、recruitment 非法状态发布、signup 附件/详情权限/容量释放、checkin QRCODE/权限/时间边界/取消报名、announcements、notifications、MePage、activities、recruitment、closure、auth/users 边界、pending-tasks 详情/处理、closure 拒绝/退回/重复结项/附件、LoginPage/RegisterPage/MeEditPage/MeProfilePage/ActivityApplyPage/AdminUsersPage/AdminOrganizationsPage/TasksPage、审核拒绝/退回补材料、结项提交成功、真实业务主链路 E2E 等测试后，尚未重新生成 coverage：
 
 | 包 | 语句覆盖率 | 分支覆盖率 | 说明 |
 | --- | ---: | ---: | --- |
 | backend | 70.67% | 69.94% | 历史覆盖率报告；本轮新增大量接口测试后需重新生成 |
 | frontend | 24.30% | 56.47% | 历史覆盖率报告；本轮新增页面测试后需重新生成 |
-| shared | 54.76% | 0% | 已覆盖 roles、statuses、http 契约，尚未覆盖 shared 与 Prisma enum 一致性 |
+| shared | 54.76% | 0% | 历史覆盖率报告；当前已覆盖 roles、statuses、http 契约和 shared/Prisma enum 一致性 |
 
 覆盖率报告位置：
 
@@ -79,9 +79,11 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 - backend：`http://localhost:3100/api/v1`
 - frontend：`http://localhost:5174`
 
-真实联调 E2E 当前使用 `backend/.env` 指向的 PostgreSQL。运行前需保证数据库结构和基础 seed 已准备好。测试创建的 `real...` 用户会在测试结束后由 `backend/src/test/real-e2e-cleanup.ts` 清理。
+真实联调 E2E 当前使用 `backend/.env` 指向的 PostgreSQL。运行前需保证数据库结构已准备好。测试创建的 `real...` 用户、真实联调组织、权限申请、立项申请、待办和活动会在测试结束后由 `backend/src/test/real-e2e-cleanup.ts` 清理。
 
-后端 Vitest 测试使用 `backend/src/test/fixtures.ts` 中的 `cleanupTestData()` 在每个用例前清理测试 fixture 数据，保证用例之间的数据隔离。真实联调 E2E 使用唯一 `real...` 用户名、邮箱和手机号，并在每个用例结束后调用 `backend/src/test/real-e2e-cleanup.ts` 清理真实浏览器流程创建的用户及 profile。
+后端 Vitest 测试使用 `backend/src/test/fixtures.ts` 中的 `cleanupTestData()` 在每个用例前清理测试 fixture 数据，保证用例之间的数据隔离。真实联调 E2E 使用唯一 `real...` 用户名、邮箱和手机号，并在每个用例结束后调用 `backend/src/test/real-e2e-cleanup.ts` 清理真实流程创建的用户、profile、组织和业务资源。
+
+CI 使用 `.github/workflows/test.yml` 启动独立 PostgreSQL service，数据库名为 `campus_test`，并在该库中执行 Prisma `db:push`、typecheck、三端 Vitest、mock E2E 和真实 E2E。
 
 注意：项目 `engines` 要求 Node.js `>=22.0.0`。本地和 CI 应统一使用 Node.js 22 或更高版本，避免 engine warning 和依赖运行时差异。
 
@@ -110,27 +112,28 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 
 | 测试文件 | 覆盖点 |
 | --- | --- |
-| `shared/src/types/roles.test.ts` | `STUDENT`、`BASIC_USER` 等角色常量基础契约 |
+| `shared/src/types/roles.test.ts` | `BASIC_USER`、`ORGANIZER`、`REVIEWER`、`SYS_ADMIN` 等角色常量基础契约 |
 | `shared/src/types/statuses.test.ts` | 活动申请 workflow 状态、报名状态常量 |
 | `shared/src/types/http.test.ts` | 成功响应 metadata、失败响应 error 字段契约 |
+| `shared/src/types/prisma-contract.test.ts` | `ActivityApplicationStatus` 与 Prisma enum 同步，`SignupStatus` 公共 API 命名与 Prisma 存储 enum 映射同步 |
 
 ### 6.2 backend
 
 | 模块 | 测试文件 | 覆盖点 |
 | --- | --- | --- |
 | health | `backend/src/modules/health/health.routes.test.ts` | `GET /api/v1/health` 返回 200 和 `ok` |
-| auth | `backend/src/modules/auth/auth.routes.test.ts` | 学生/教师注册、缺字段、短用户名、重复用户名、登录成功、密码错误、未登录访问 |
-| users | `backend/src/modules/users/users.routes.test.ts` | 基础信息更新、非法 email、无效 token、学生 profile、教师 profile、grade 类型校验 |
-| real E2E cleanup | `backend/src/test/real-e2e-cleanup.test.ts` | 删除真实 E2E 测试用户，并验证学生 profile 级联删除 |
-| role-applications | `backend/src/modules/role-applications/role-applications.routes.test.ts` | 未登录拒绝、创建 ORGANIZER 申请、本人申请列表、student 申请 REVIEWER 拒绝、teacher 申请 REVIEWER、缺组织拒绝、非 SYS_ADMIN 审核拒绝、审核通过写角色和组织绑定、审核拒绝、重复审核拒绝 |
-| activity-applications | `backend/src/modules/activity-applications/activity-applications.routes.test.ts` | 未登录拒绝、创建草稿、非法组织、草稿更新、非申请人拒绝、提交后创建 reviewer 待办 |
-| approval / pending-tasks | `backend/src/modules/approval/approval.routes.test.ts` | 待办鉴权、只返回当前用户待办、按 `status` 过滤、非法过滤参数拒绝 |
+| auth | `backend/src/modules/auth/auth.routes.test.ts` | 学生/教师注册、缺字段、短用户名、重复 username/email/phone、登录成功、密码错误、被封禁用户登录失败、封禁后旧 token 访问受保护接口失败、未登录访问 |
+| users | `backend/src/modules/users/users.routes.test.ts` | 基础信息更新、email/phone 冲突、非法 email、无效 token、学生 profile、教师 profile、grade 类型校验、`/users/me/roles` |
+| real E2E cleanup | `backend/src/test/real-e2e-cleanup.test.ts` | 删除真实 E2E 测试用户，验证学生 profile 级联删除，并清理真实业务主链路创建的组织、权限申请、立项申请、待办和活动 |
+| role-applications | `backend/src/modules/role-applications/role-applications.routes.test.ts` | 未登录拒绝、创建 ORGANIZER 申请、本人申请列表、重复待审申请拒绝、student 申请 REVIEWER 拒绝、teacher 申请 REVIEWER、缺组织拒绝、非 SYS_ADMIN 审核拒绝、审核通过写角色和组织绑定、审核拒绝、重复审核拒绝 |
+| activity-applications | `backend/src/modules/activity-applications/activity-applications.routes.test.ts` | 未登录拒绝、创建草稿、非法组织、草稿更新、非申请人拒绝、提交后创建 reviewer 待办、附件上传/查询/删除、跨 application 删除附件拒绝、审核详情权限、非当前审核人 review 拒绝、审核拒绝、退回补材料后重新提交、最终通过生成活动、审核记录列表 |
+| approval / pending-tasks | `backend/src/modules/approval/approval.routes.test.ts` | 待办鉴权、只返回当前用户待办、按 `status` 过滤、待办详情、非分配人详情拒绝、分配人处理、非分配人处理拒绝、重复处理拒绝、非法过滤参数拒绝 |
 | announcements / notifications | `backend/src/modules/announcements/announcements.routes.test.ts` | SYS_ADMIN 创建公告草稿、发布公告、写入发布事件、BASIC_USER 收到未读通知、通知列表、单条已读、全部已读、已读/未读筛选、读取其他用户通知拒绝、普通用户创建公告拒绝 |
-| recruitment / signup | `backend/src/modules/recruitment/recruitment-signups.routes.test.ts` | 创建招募草稿、编辑招募、发布招募、关闭招募、非负责人编辑拒绝、活动进入 RECRUITING、学生报名、重复报名拒绝、取消报名、创建报名审核待办、负责人审核通过/拒绝、非负责人审核拒绝、待办完成、通知申请人 |
-| checkin | `backend/src/modules/checkin/checkin.routes.test.ts` | 创建签到码场次、开启场次、统计已通过报名人数、签到码签到、重复签到冲突、查询签到记录、未开启/已关闭签到拒绝、错误签到码拒绝、未通过报名用户拒绝、手动补签、关闭场次 |
-| closure | `backend/src/modules/closure/closure.routes.test.ts` | 创建结项草稿、提交后创建结项审核待办、审核通过、活动变为 CLOSED、查询审核记录、通知负责人 |
+| recruitment / signup | `backend/src/modules/recruitment/recruitment-signups.routes.test.ts` | 创建招募草稿、编辑招募、发布招募、关闭招募、关闭后再次发布拒绝、非负责人编辑拒绝、活动进入 RECRUITING、学生报名、重复报名拒绝、取消报名、取消后释放容量、报名附件上传、申请人和负责人可见报名附件、无关用户读取报名详情/上传附件拒绝、创建报名审核待办、负责人审核通过/拒绝、非负责人审核拒绝、待办完成、通知申请人、容量满员拒绝、报名时间窗拒绝、用户类型/年级/专业限制拒绝 |
+| checkin | `backend/src/modules/checkin/checkin.routes.test.ts` | 创建签到码场次、开启场次、统计已通过报名人数、签到码签到、重复签到冲突、查询签到记录、未开启/已关闭签到拒绝、错误签到码拒绝、未通过报名用户拒绝、取消报名用户拒绝、手动补签、关闭场次、QRCODE token 签到、非负责人管理拒绝、签到开始和结束时间边界 |
+| closure | `backend/src/modules/closure/closure.routes.test.ts` | 创建结项草稿、提交后创建结项审核待办、审核通过、活动变为 CLOSED、查询审核记录、通知负责人、附件上传、非申请人上传附件拒绝、非负责人提交拒绝、未结束活动提交拒绝、重复结项拒绝、非审核人拒绝、审核拒绝、退回补材料后更新并重新提交 |
 | admin | `backend/src/modules/admin/admin.routes.test.ts` | 非 SYS_ADMIN 访问拒绝、用户列表和角色过滤、用户详情、用户状态管理、dashboard、系统日志查询 |
-| organizations | `backend/src/modules/orgs/orgs.routes.test.ts` | 组织列表和类型过滤、组织树、组织详情、SYS_ADMIN 创建/更新组织、用户组织绑定/查询/解绑、非 SYS_ADMIN 写操作拒绝 |
+| organizations | `backend/src/modules/orgs/orgs.routes.test.ts` | 组织列表和类型过滤、组织树、组织详情、SYS_ADMIN 创建/更新组织、用户组织绑定/查询/解绑、重复绑定拒绝、解绑不存在关系拒绝、非 SYS_ADMIN 写操作拒绝 |
 | activities | `backend/src/modules/activities/activities.routes.test.ts` | 活动列表状态/关键词过滤、活动详情、我的活动、开始活动、结束活动、非负责人操作拒绝、非法状态流转拒绝 |
 
 后端测试数据辅助：
@@ -142,21 +145,25 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 
 | 页面/组件 | 测试文件 | 覆盖点 |
 | --- | --- | --- |
-| LoginPage | `frontend/src/app/App.test.tsx` | 登录表单基础渲染 |
-| RegisterPage | `frontend/src/modules/auth/RegisterPage.test.tsx` | 注册表单字段渲染 |
-| MeEditPage | `frontend/src/modules/users/MeEditPage.test.tsx` | 基础信息编辑字段渲染 |
-| MeProfilePage | `frontend/src/modules/users/MeProfilePage.test.tsx` | 学生/教师扩展资料字段差异 |
+| LoginPage | `frontend/src/app/App.test.tsx`、`frontend/src/modules/auth/LoginPage.test.tsx` | 登录表单基础渲染、登录成功保存 session 并回跳来源页、登录失败展示后端错误且不写入 session |
+| RegisterPage | `frontend/src/modules/auth/RegisterPage.test.tsx` | 注册表单字段渲染、注册成功保存 session 并跳转资料页、注册失败展示后端错误且不写入 session |
+| MeEditPage | `frontend/src/modules/users/MeEditPage.test.tsx` | 基础信息编辑字段渲染、保存成功更新 auth store 并跳转 `/me`、保存失败展示后端错误并保留输入 |
+| MeProfilePage | `frontend/src/modules/users/MeProfilePage.test.tsx` | 学生/教师扩展资料字段差异、学生 profile 保存成功/失败、教师 profile 保存成功/失败、保存成功更新 auth store 并跳转 `/me`、保存失败保留输入 |
 | MePage | `frontend/src/modules/users/MePage.test.tsx` | 账号信息、角色、学生 profile 展示，profile 空状态，刷新重新请求当前用户 |
 | RequireAuth | `frontend/src/shared/auth/guards.test.tsx` | 未登录跳转 `/login`、已登录渲染子内容 |
 | AppLayout | `frontend/src/shared/components/AppLayout.test.tsx` | 多角色视图切换、角色菜单、退出登录清 session 并跳转 |
+| ActivityApplyPage | `frontend/src/modules/activity-applications/ActivityApplyPage.test.tsx` | 从 API 加载可选组织、保存草稿、创建后提交审核、后端错误提示并保留表单 |
 | MyApplicationsPage | `frontend/src/modules/activity-applications/MyApplicationsPage.test.tsx` | 申请列表渲染、按活动名称搜索、进行中筛选 |
 | ReviewerInboxPage | `frontend/src/modules/approval/ReviewerInboxPage.test.tsx` | 待办列表渲染、按活动名称/组织搜索、进入审核详情 |
-| ReviewerDetailPage | `frontend/src/modules/approval/ReviewerDetailPage.test.tsx` | 申请详情、附件、审核历史、空意见阻止确认、填写意见后打开确认弹窗、缺失申请空状态 |
+| ReviewerDetailPage | `frontend/src/modules/approval/ReviewerDetailPage.test.tsx` | 申请详情、附件、审核历史、空意见阻止确认、通过/驳回/退回补材料确认与返回待办、缺失申请空状态 |
 | NotificationCenterPage | `frontend/src/modules/notifications/NotificationCenterPage.test.tsx` | 未读筛选、单条标记已读、全部标记已读 |
 | CheckinPage | `frontend/src/modules/checkin/CheckinPage.test.tsx` | 已有签到场次、签到码展示、创建手动签到场次 |
 | ActivityListPage / ActivityDetailPage | `frontend/src/modules/activities/ActivityPages.test.tsx` | 活动状态筛选、关键词搜索、详情页报名/签到入口、活动不存在空状态 |
 | ActivityRegisterPage / MyRegistrationsPage | `frontend/src/modules/recruitment/RecruitmentPages.test.tsx` | 已发布招募报名表单、未开放报名提示、我的报名状态、通过后去签到入口、拒绝理由 |
-| ClosureApplyPage | `frontend/src/modules/closure/ClosureApplyPage.test.tsx` | 结项表单字段、附件上传区域、活动总结长度校验 |
+| ClosureApplyPage | `frontend/src/modules/closure/ClosureApplyPage.test.tsx` | 结项表单字段、附件上传区域、活动总结长度校验、提交成功后返回我的活动 |
+| AdminUsersPage | `frontend/src/modules/admin/AdminUsersPage.test.tsx` | 用户管理 API 数据渲染、关键词筛选 |
+| AdminOrganizationsPage | `frontend/src/modules/admin/AdminOrganizationsPage.test.tsx` | 组织树 API 数据渲染、新增组织弹窗入口 |
+| TasksPage | `frontend/src/modules/tasks/TasksPage.test.tsx` | 待办 API 数据渲染、按处理状态筛选 |
 
 前端测试环境：
 
@@ -171,82 +178,31 @@ pnpm --filter @campus-activity/web exec playwright install chromium
 | 组织者立项申请前端流程 | `frontend/tests/e2e/organizer-reviewer-flow.spec.ts` | 注入 ORGANIZER 登录态、打开 `/applications`、进入 `/applications/new`、空表单提交触发表单校验 |
 | 审核人处理立项待办前端流程 | `frontend/tests/e2e/organizer-reviewer-flow.spec.ts` | 注入 REVIEWER 登录态、打开 `/approvals`、进入审核详情、填写审核意见、打开确认弹窗、确认后返回 `/approvals` |
 | 真实后端注册-资料-重登闭环 | `frontend/tests/e2e-real/auth-real-backend.spec.ts` | 自动启动真实 backend 和 frontend，连接 PostgreSQL，浏览器注册唯一测试用户，修改学生 profile，退出后重新登录，验证 profile 数据持久化，测试结束后清理用户并验证无法再次登录 |
+| 真实业务权限-立项-审核闭环 | `frontend/tests/e2e-real/activity-approval-real-backend.spec.ts` | 自动创建唯一真实联调用户、管理员、审核人和组织，提交 ORGANIZER 权限申请，管理员审核后角色生效，提交立项，审核人通过后生成 PLANNED 活动，并清理用户、组织、申请、待办和活动 |
 
 ## 7. 当前未覆盖或覆盖不足的区域
 
-### 7.1 后端
+后续不再按“尽可能穷尽”扩展测试。已经实现并通过的测试保留；尚未实现的计划只保留高风险、低维护成本的回归点，避免测试规模继续拖慢开发节奏。
 
-| 模块 | 当前覆盖 | 仍缺少的测试重点 |
+| 区域 | 当前覆盖 | 保留的关键补测 |
 | --- | --- | --- |
-| auth / users | 覆盖学生和教师注册、登录、缺字段、短用户名、重复用户名、密码错误、当前用户读取、基础资料更新、学生/教师 profile 更新和部分校验 | 账号禁用后的登录与访问拒绝、更新 email 或 phone 时的唯一性冲突、`/users/me/roles` 路由、profile 缺失或角色不匹配时的错误路径 |
-| role-applications | 覆盖未登录拒绝、ORGANIZER 申请、本人列表、学生申请 REVIEWER 拒绝、TEACHER 申请 REVIEWER、缺组织拒绝、非 SYS_ADMIN 审核拒绝、审核通过写入角色和组织绑定、审核拒绝、重复审核拒绝 | 重复申请、详情读取权限、admin 聚合审核列表更多过滤条件 |
-| activity-applications / approval | 覆盖创建草稿、非法组织、草稿更新、非申请人更新拒绝、提交后创建 reviewer 待办、待办列表和 status 过滤；service 层覆盖最终通过生成活动 | 附件上传和删除、申请详情权限、审核拒绝、退回补材料、多级审核、路由级“最终通过生成活动”、审核记录读取、非法状态流转 |
-| activities | 覆盖活动列表、关键词和状态过滤、我的活动、活动详情、开始活动、结束活动、负责人权限和非法状态流转 | SYS_ADMIN 代操作、更多状态组合、报名人数聚合边界、分页 metadata |
-| recruitment | 覆盖负责人创建招募草稿、编辑、发布、关闭、非负责人拒绝、活动进入 RECRUITING、按 PUBLISHED 查询列表 | 容量限制、报名时间窗口、用户类型限制、年级/专业限制、详情接口、已发布后编辑拒绝、非法状态发布 |
-| signup | 覆盖学生报名、重复报名拒绝、取消报名、创建 SIGNUP_REVIEW 待办、负责人审核通过/拒绝、非负责人审核拒绝、待办完成、通知申请人 | 报名材料上传、容量满员、非学生报名限制、年级/专业限制命中和拒绝、报名详情权限 |
-| checkin | 覆盖创建 CODE 场次、开启场次、统计已通过报名人数、签到码签到、重复签到冲突、记录查询、错误签到码、未开放/已关闭场次、未通过报名用户拒绝、手动补签、关闭场次 | QRCODE 场次、非负责人创建/查看/补签拒绝、签到时间窗口边界 |
-| closure | 覆盖负责人创建结项草稿、提交后创建 CLOSURE_REVIEW 待办、审核通过、活动变为 CLOSED、记录查询、通知负责人 | 退回补材料、审核拒绝、多级审核、非负责人提交/查看拒绝、附件上传、草稿更新、重复结项、非法活动状态结项 |
-| announcements / notifications | 覆盖 SYS_ADMIN 创建公告草稿、发布公告、发布事件、BASIC_USER 收到未读通知、通知列表、单条已读、全部已读、已读/未读筛选、读取其他用户通知拒绝、普通用户创建公告拒绝 | 公告更新、归档、分类筛选、置顶排序、公告详情、通知分页 |
-| admin | 覆盖非 SYS_ADMIN 拒绝、用户列表、角色过滤、用户详情、用户状态管理、dashboard、系统日志查询 | 角色申请列表与审核聚合、用户列表分页和状态过滤、用户不存在、系统日志多条件过滤 |
-| organizations | 覆盖组织列表和类型过滤、组织树、组织详情、SYS_ADMIN 创建/更新组织、用户组织绑定/查询/解绑、非 SYS_ADMIN 写操作拒绝 | 组织状态过滤、父组织不存在、重复绑定拒绝、解绑不存在关系、组织不存在 |
-| pending-tasks | 覆盖 `/pending-tasks/me` 的鉴权、当前用户过滤、status 过滤和非法过滤参数 | 待办详情、待办 process、无权查看或处理、不同 taskType 的处理入口一致性 |
-| shared 与 Prisma enum 一致性 | shared 仅覆盖前端共享常量自身存在 | 防止 shared 状态常量、角色常量与 Prisma enum 漂移的契约测试 |
-| 测试数据隔离 | 后端模块测试用例前清理 fixture；真实 E2E 创建唯一 `real...` 用户并在用例后清理 | 独立 `campus_test` 数据库、backend suite 结束后的最终清理检查、真实 E2E 扩展到活动/待办/报名/签到/结项后的多资源清理 |
-
-### 7.2 前端
-
-| 区域 | 当前覆盖 | 仍缺少的测试重点 |
-| --- | --- | --- |
-| LoginPage | 仅在 `App.test.tsx` 中覆盖登录表单基础渲染 | 登录成功、登录失败、错误提示、loading、登录后回跳来源、已登录访问登录页行为 |
-| RegisterPage | 覆盖注册字段渲染 | 字段校验、提交成功、提交失败、重复用户名错误、不同身份默认 profile 流向 |
-| MePage | 覆盖当前用户信息展示、角色展示、学生 profile 展示、profile 为空、刷新重新请求 | 刷新失败提示、教师 profile 展示、跳转编辑入口 |
-| MeEditPage / MeProfilePage | 覆盖基础字段和学生/教师 profile 字段差异 | 保存成功、保存失败、API error、loading、服务端校验错误、保存后跳转或提示 |
-| ActivityApplyPage / MyApplicationsPage | 我的申请覆盖列表渲染、搜索、进行中筛选 | 新建立项表单提交、草稿保存、附件、字段校验、API error、状态标签和空列表 |
-| ReviewerInboxPage / ReviewerDetailPage | 覆盖 mock 待办列表、搜索、进入详情、详情展示、附件、审核历史、空意见阻止通过、确认弹窗和空状态 | 真实 API 数据路径、审核拒绝、退回补材料、loading、error、不同状态下按钮禁用 |
-| ActivityListPage / ActivityDetailPage / MyActivitiesPage | 覆盖活动列表状态筛选、关键词搜索、详情页报名/签到入口、活动不存在空状态 | 我的活动、开始/结束按钮、不同活动状态展示和权限差异、真实 API 数据路径 |
-| RecruitmentEditPage / ActivityRegisterPage / MyRegistrationsPage / RegistrationReviewPage | 覆盖已发布招募报名表单、未开放报名提示、我的报名状态、审核通过后的去签到入口、拒绝理由 | 招募创建/编辑/发布/关闭、真实报名提交、报名审核、容量满员和限制条件提示 |
-| CheckinPage | 覆盖 mock 已有场次、签到码展示、创建手动签到场次 | 真实 API 数据路径、打开/关闭场次、错误签到码、手动补签、签到记录空态和失败态 |
-| ClosureApplyPage / ClosureInboxPage / ClosureReviewPage | 覆盖结项申请字段渲染、附件上传区域、活动总结长度校验 | 成功提交、审核列表、审核详情、通过/拒绝/退回、真实 API 错误态 |
-| NotificationCenterPage | 覆盖 mock 未读筛选、单条已读、全部已读 | 真实 API 数据路径、分页、未读数量同步、全部已读失败、空态、已读筛选 |
-| Admin / Sysadmin / Organizations / Permissions / Tasks | 基本未覆盖 | 用户管理、用户详情、组织管理、系统日志、公告管理、权限申请、角色审核、待办中心 |
-
-### 7.3 E2E
-
-| 流程 | 当前覆盖 | 仍缺少的测试重点 |
-| --- | --- | --- |
-| mock 注册-资料-退出闭环 | 覆盖注册页、mock register API、profile 编辑、个人页、退出登录和受保护路由回登录页 | 登录失败、刷新持久化、真实 API 替换后的同链路 |
-| mock 组织者立项流程 | 覆盖 ORGANIZER 登录态、申请列表、进入新建立项、空表单校验 | 完整提交、附件、草稿保存、提交后状态变化 |
-| mock reviewer 审核流程 | 覆盖 REVIEWER 登录态、待办列表、进入详情、填写意见、确认通过后返回列表 | 驳回、退回补材料、错误态、真实 API 替换后的同链路 |
-| 真实后端注册-profile-重登闭环 | 覆盖真实 backend、真实 PostgreSQL、唯一测试用户、浏览器注册、profile 保存、退出重登、持久化验证、测试用户清理 | 独立测试数据库、基础 seed 固化、失败路径、账号禁用、更多资源清理 |
-| 权限申请真实 E2E | 未覆盖 | 用户申请角色、管理员审核、角色生效、无权访问拒绝 |
-| 活动立项真实 E2E | 未覆盖 | 组织者创建并提交立项、reviewer 审核、最终生成活动、待办和通知联动 |
-| 招募报名真实 E2E | 未覆盖 | 负责人发布招募、学生报名、负责人审核、学生查看报名状态 |
-| 签到真实 E2E | 未覆盖 | 负责人创建/开启场次、学生签到、负责人查看记录、重复签到失败 |
-| 结项真实 E2E | 未覆盖 | 负责人提交结项、reviewer 审核、活动关闭、通知负责人 |
-| admin / organization 真实 E2E | 未覆盖 | 用户状态管理、组织创建更新、用户组织绑定、系统日志可见 |
-| 负向权限 E2E | 未覆盖 | 未登录、低权限、跨用户数据访问、非法状态操作 |
-
-真实后端联动 E2E 当前使用唯一用户名、邮箱和手机号避免冲突，并在 `afterEach` 中调用 backend 侧 Prisma 清理脚本删除测试用户。后续真实流程一旦创建活动、申请、待办、报名、签到和结项数据，需要同步扩展清理脚本，不能依赖手工清库。
-
-### 7.4 覆盖率与质量门禁
-
-| 区域 | 当前状态 | 后续测试重点 |
-| --- | --- | --- |
-| coverage 报告 | backend、frontend、shared 均已有历史报告；新增测试后未重新生成 | 重新运行 `pnpm --filter @campus-activity/server test:coverage`、`pnpm --filter @campus-activity/web test:coverage`、`pnpm --filter @campus-activity/shared test:coverage`，更新本文件中的覆盖率数字 |
-| lint 门禁 | `pnpm lint` 通过但仍有 49 个 backend warning | 清理或建立 warning budget，避免 warning 长期被视为正常噪音 |
-| CI 自动化 | 文档记录了本地命令，仓库内尚未形成完整 CI 门禁 | 接入 lint、typecheck、单元/模块测试、mock E2E；真实 PostgreSQL E2E 需配置独立数据库和 seed |
-| 测试数据隔离 | 单元/模块测试和真实 E2E 有基础清理机制 | 真实全流程 E2E 前先完成独立测试库和可重复 seed，避免污染开发数据 |
+| 后端核心状态流转 | 已覆盖注册登录、用户资料、角色申请、立项审核、待办、招募报名、签到、结项、公告通知、组织和后台管理的主要成功/失败路径 | 不再按模块逐项扩充；只在发现权限绕过、非法状态流转或脏数据风险时补回归测试 |
+| 后端数据隔离 | 模块测试已用 fixture 清理；真实 E2E 已清理注册/profile 测试用户 | 真实 E2E 若新增活动/申请/报名/签到/结项资源，先扩展按前缀清理和残留检测 |
+| 前端页面 | 已覆盖登录注册、个人中心、立项申请、审核、活动/招募/签到/结项、通知、用户管理、组织管理、待办列表、审核拒绝/退回补材料、结项提交成功的关键渲染和交互 | 当前不再新增页面测试；后续仅在功能变更时补对应关键用例 |
+| E2E | 已有 mock 注册-profile-退出、mock 立项/审核流程、真实注册-profile-重登闭环、真实权限申请-立项审核-活动生成闭环 | 当前真实业务 smoke 已覆盖；后续只在新增主流程时补新的真实 E2E |
+| 覆盖率与 CI | 已有历史 coverage，命令已记录 | 暂不为覆盖率数字扩规模；后续只在 CI 固化 `typecheck`、三端 Vitest、必要 E2E |
 
 ## 8. 已知问题与风险
 
 1. 全仓 lint 当前通过但仍有 49 个 backend warning，主要是 `@typescript-eslint/no-explicit-any`。
 2. 前端 `AppLayout.test.tsx` 仍会输出 React `act(...)` warning。测试通过，但后续应收敛异步状态更新断言。
 3. Ant Design v5 在 React 19 下会输出兼容 warning。测试通过，但需要关注 UI 组件库升级或兼容适配。
-4. Playwright webServer 会输出 `NO_COLOR` 被 `FORCE_COLOR` 覆盖的 warning，不影响结果，但会污染日志。
-5. 后端测试和真实联调 E2E 当前使用 `backend/.env` 指向的数据库，尚未隔离到独立 `campus_test`。
-6. 真实联调 E2E 清理范围当前主要覆盖 `real...` 测试用户及 profile；若未来真实 E2E 创建活动、申请、待办、报名、签到或结项数据，需要同步扩展清理脚本。
-7. 新增测试后尚未重新生成 coverage，当前覆盖率数字只能作为历史参考。
-8. Codex 沙箱内 `tsx` 创建 IPC pipe 会触发 `listen EPERM`，真实 E2E 需要在非沙箱环境运行。
+4. `ClosureApplyPage.test.tsx` 会输出 Ant Design `InputNumber addonAfter` deprecated 和 `Upload value` warning。测试通过，但页面实现后续应改用 `Space.Compact` 和受控 `fileList`。
+5. Playwright webServer 会输出 `NO_COLOR` 被 `FORCE_COLOR` 覆盖的 warning，不影响结果，但会污染日志。
+6. 本地后端测试和真实联调 E2E 当前仍默认使用 `backend/.env` 指向的数据库；CI 已使用独立 `campus_test`。
+7. 真实联调 E2E 清理已覆盖用户、profile、组织、权限申请、立项申请、待办和活动；若未来真实 E2E 创建报名、签到或结项数据，需要同步扩展清理脚本。
+8. 新增测试后尚未重新生成 coverage，当前覆盖率数字只能作为历史参考。
+9. Codex 沙箱内 `tsx` 创建 IPC pipe 会触发 `listen EPERM`，真实 E2E 需要在非沙箱环境运行。
 
 ## 9. 新功能测试维护流程
 

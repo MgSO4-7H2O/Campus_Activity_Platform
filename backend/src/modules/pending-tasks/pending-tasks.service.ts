@@ -1,7 +1,7 @@
 import type { PendingTaskStatus } from '@prisma/client'
 
 import prisma from '../../shared/prisma/client.js'
-import { notFound } from '../../shared/errors/app-error.js'
+import { badRequest, notFound } from '../../shared/errors/app-error.js'
 
 function toDto(task: any) {
   return {
@@ -38,6 +38,12 @@ export const pendingTasksService = {
   },
 
   async markProcessed(taskId: string) {
+    const existing = await prisma.pendingTask.findUnique({ where: { id: taskId } })
+    if (!existing) throw notFound('待办不存在')
+    if (existing.status !== 'PENDING') {
+      throw badRequest(`当前待办状态不可处理: ${existing.status}`)
+    }
+
     const task = await prisma.pendingTask.update({
       where: { id: taskId },
       data: { status: 'PROCESSED', processedAt: new Date() },

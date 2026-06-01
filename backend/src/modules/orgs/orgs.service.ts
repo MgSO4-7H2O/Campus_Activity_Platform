@@ -155,6 +155,12 @@ export const orgsService = {
   async removeUserOrganization(userId: string, targetUserId: string, organizationId: string) {
     await assertUserHasRole(userId, 'SYS_ADMIN')
 
+    const existing = await prisma.userOrganization.findUnique({
+      where: { userId_organizationId: { userId: targetUserId, organizationId } },
+    })
+
+    if (!existing) throw notFound('组织成员关系不存在')
+
     await prisma.userOrganization.delete({
       where: { userId_organizationId: { userId: targetUserId, organizationId } },
     })

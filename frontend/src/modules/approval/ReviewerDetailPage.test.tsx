@@ -47,6 +47,32 @@ describe('ReviewerDetailPage', () => {
     expect(screen.getAllByText('材料完整，同意通过。').length).toBeGreaterThan(1)
   })
 
+  it('填写审核意见后可以驳回申请并返回待办页', async () => {
+    const user = userEvent.setup()
+    renderDetail('/approvals/app-001')
+
+    await user.type(screen.getByPlaceholderText('请填写审核意见（驳回 / 要求补材料时为必填）'), '预算依据不足，驳回。')
+    await user.click(screen.getByRole('button', { name: /驳回/ }))
+
+    expect(screen.getByText('确认驳回该申请？')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(await screen.findByText('审核待办页')).toBeInTheDocument()
+  })
+
+  it('填写审核意见后可以要求补材料并返回待办页', async () => {
+    const user = userEvent.setup()
+    renderDetail('/approvals/app-001')
+
+    await user.type(screen.getByPlaceholderText('请填写审核意见（驳回 / 要求补材料时为必填）'), '请补充安全预案和场地审批证明。')
+    await user.click(screen.getByRole('button', { name: /要求补材料/ }))
+
+    expect(screen.getByText('确认要求补材料该申请？')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(await screen.findByText('审核待办页')).toBeInTheDocument()
+  })
+
   it('找不到申请时展示空状态', () => {
     renderDetail('/approvals/missing-application')
 

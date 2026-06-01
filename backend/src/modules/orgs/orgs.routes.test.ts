@@ -129,6 +129,49 @@ describe('Organization APIs', () => {
     expect(membership).toBeNull()
   })
 
+  it('rejects duplicate organization membership and missing membership removal', async () => {
+    const admin = await registerTestUser({
+      username: 'org_edge_admin',
+      userType: 'teacher',
+      realName: '组织边界管理员',
+    })
+    await grantRole(admin.id, 'SYS_ADMIN')
+    const target = await registerTestUser({
+      username: 'org_edge_target',
+      userType: 'student',
+      realName: '组织边界用户',
+    })
+    const organization = await createTestOrganization({
+      orgCode: 'TEST_ORG_EDGE',
+      name: '组织边界测试',
+      type: 'CLUB',
+    })
+
+    const firstBindRes = await request(createApp())
+      .post(`/api/v1/admin/users/${target.id}/organizations`)
+      .set('Authorization', `Bearer ${admin.accessToken}`)
+      .send({ organizationId: organization.id, role: 'MEMBER' })
+    const duplicateBindRes = await request(createApp())
+      .post(`/api/v1/admin/users/${target.id}/organizations`)
+      .set('Authorization', `Bearer ${admin.accessToken}`)
+      .send({ organizationId: organization.id, role: 'MEMBER' })
+
+    expect(firstBindRes.status).toBe(201)
+    expect(duplicateBindRes.status).toBe(400)
+    expect(duplicateBindRes.body.error.code).toBe('BAD_REQUEST')
+
+    await request(createApp())
+      .delete(`/api/v1/admin/users/${target.id}/organizations/${organization.id}`)
+      .set('Authorization', `Bearer ${admin.accessToken}`)
+
+    const missingRemovalRes = await request(createApp())
+      .delete(`/api/v1/admin/users/${target.id}/organizations/${organization.id}`)
+      .set('Authorization', `Bearer ${admin.accessToken}`)
+
+    expect(missingRemovalRes.status).toBe(404)
+    expect(missingRemovalRes.body.error.code).toBe('NOT_FOUND')
+  })
+
   it('rejects organization admin writes from a non-admin user', async () => {
     const user = await registerTestUser({
       username: 'org_basic',

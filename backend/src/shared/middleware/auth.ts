@@ -2,7 +2,8 @@ import type { RequestHandler } from 'express'
 
 import { env } from '../../config/env.js'
 import { verifyJwt } from '../auth/jwt.js'
-import { unauthorized } from '../errors/app-error.js'
+import { forbidden, unauthorized } from '../errors/app-error.js'
+import prisma from '../prisma/client.js'
 
 declare global {
   // Express exposes Request augmentation through this namespace.
@@ -16,7 +17,7 @@ declare global {
   }
 }
 
-export const requireAuth: RequestHandler = (req, _res, next) => {
+export const requireAuth: RequestHandler = async (req, _res, next) => {
   const header = req.header('authorization') ?? req.header('Authorization')
   if (!header) {
     next(unauthorized('缺少 Authorization Header'))
@@ -29,13 +30,31 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
     return
   }
 
+  let userId: string
   try {
-    const payload = verifyJwt(token, env.JWT_SECRET)
-    req.auth = { userId: payload.sub }
-    next()
+    userId = verifyJwt(token, env.JWT_SECRET).sub
   } catch {
     next(unauthorized('登录已过期或无效，请重新登录'))
+    return
   }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, status: true },
+  })
+
+  if (!user) {
+    next(unauthorized('登录用户不存在，请重新登录'))
+    return
+  }
+
+  if (user.status !== 'ACTIVE') {
+    next(forbidden('用户已被禁用'))
+    return
+  }
+
+  req.auth = { userId: user.id }
+  next()
 }
 
 export {}

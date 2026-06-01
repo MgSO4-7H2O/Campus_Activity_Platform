@@ -170,6 +170,7 @@ export const recruitmentService = {
   async publishRecruitment(userId: string, id: string) {
     const recruitment = await prisma.recruitment.findUnique({ where: { id } })
     if (!recruitment) throw notFound('招募不存在')
+    if (recruitment.status !== 'DRAFT') throw badRequest('仅草稿可发布')
 
     const activity = await prisma.activity.findUnique({ where: { id: recruitment.activityId } })
     if (!activity) throw notFound('活动不存在')

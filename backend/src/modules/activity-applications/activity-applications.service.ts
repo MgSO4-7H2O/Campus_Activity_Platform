@@ -152,6 +152,11 @@ export const activityApplicationsService = {
     if (!app) throw notFound('立项申请不存在')
     if (app.applicantId !== userId) throw badRequest('无权删除该附件')
 
+    const attachment = await prisma.applicationAttachment.findFirst({
+      where: { id: attachmentId, applicationId },
+    })
+    if (!attachment) throw notFound('附件不存在')
+
     await prisma.applicationAttachment.delete({ where: { id: attachmentId } })
   },
 

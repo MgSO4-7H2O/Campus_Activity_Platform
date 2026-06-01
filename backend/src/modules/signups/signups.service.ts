@@ -50,6 +50,18 @@ export const signupsService = {
       throw badRequest('报名已结束')
     }
 
+    if (recruitment.quota !== null) {
+      const activeSignupCount = await prisma.recruitmentSignup.count({
+        where: {
+          recruitmentId,
+          status: { in: ['PENDING', 'APPROVED'] },
+        },
+      })
+      if (activeSignupCount >= recruitment.quota) {
+        throw badRequest('报名名额已满')
+      }
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { studentProfile: true },

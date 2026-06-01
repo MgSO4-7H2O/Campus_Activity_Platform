@@ -9,7 +9,7 @@ const router: ExpressRouter = Router()
 router.get('/approval/activity-applications/:id', requireAuth, async (req, res, next) => {
   try {
     const { id } = routeIdSchema.parse(req.params)
-    const data = await approvalService.getActivityApplication(id)
+    const data = await approvalService.getActivityApplication(id, req.auth!.userId)
     res.json(ok(data))
   } catch (error) {
     next(error)

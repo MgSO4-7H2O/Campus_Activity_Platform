@@ -17,7 +17,7 @@ describe('shared status constants', () => {
 
   it('defines signup statuses used by registration flows', () => {
     expect(Object.values(SignupStatus)).toEqual([
-      'PENDING',
+      'SUBMITTED',
       'APPROVED',
       'REJECTED',
       'CANCELED',

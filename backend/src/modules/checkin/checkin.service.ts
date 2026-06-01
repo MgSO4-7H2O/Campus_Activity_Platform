@@ -11,7 +11,7 @@ function toSessionDto(session: any, activityTitle: string, signedCount: number, 
     activityId: session.activityId,
     title: activityTitle,
     method: session.mode,
-    code: session.checkinCode ?? null,
+    code: session.checkinCode ?? session.qrcodeToken ?? null,
     startAt: session.startTime.toISOString(),
     endAt: session.endTime.toISOString(),
     status: session.status === 'PENDING' ? 'DRAFT' : session.status,
@@ -169,6 +169,9 @@ export const checkinService = {
 
     if (session.mode === 'CODE' && session.checkinCode !== code) {
       throw badRequest('签到码错误')
+    }
+    if (session.mode === 'QRCODE' && session.qrcodeToken !== code) {
+      throw badRequest('二维码无效')
     }
 
     const signup = await prisma.recruitmentSignup.findFirst({

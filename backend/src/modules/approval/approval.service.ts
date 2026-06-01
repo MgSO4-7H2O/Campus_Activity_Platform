@@ -1,5 +1,5 @@
 import prisma from '../../shared/prisma/client.js'
-import { badRequest, notFound } from '../../shared/errors/app-error.js'
+import { badRequest, forbidden, notFound } from '../../shared/errors/app-error.js'
 import { pendingTasksService } from '../pending-tasks/pending-tasks.service.js'
 import { notificationsService } from '../notifications/notifications.service.js'
 import { createSystemLog } from '../../shared/utils/system-log.js'
@@ -36,6 +36,20 @@ function toActivityApplicationDto(app: any) {
   }
 }
 
+async function getActivityApplicationOrThrow(applicationId: string) {
+  const app = await prisma.activityApplication.findUnique({
+    where: { id: applicationId },
+    include: {
+      organization: true,
+      applicant: true,
+      attachments: true,
+    },
+  })
+
+  if (!app) throw notFound('活动立项不存在')
+  return app
+}
+
 async function resolveApprovalOrganizations(applicantOrgId: string) {
   const org = await prisma.organization.findUnique({ where: { id: applicantOrgId } })
   if (!org) return []
@@ -68,22 +82,16 @@ export const approvalService = {
   resolveApprovalOrganizations,
   findReviewerByOrganization,
 
-  async getActivityApplication(applicationId: string) {
-    const app = await prisma.activityApplication.findUnique({
-      where: { id: applicationId },
-      include: {
-        organization: true,
-        applicant: true,
-        attachments: true,
-      },
-    })
-
-    if (!app) throw notFound('活动立项不存在')
+  async getActivityApplication(applicationId: string, requesterId: string) {
+    const app = await getActivityApplicationOrThrow(applicationId)
+    if (app.applicantId !== requesterId && app.currentReviewerId !== requesterId) {
+      await assertUserHasAnyRole(requesterId, ['SYS_ADMIN'])
+    }
     return toActivityApplicationDto(app)
   },
 
   async reviewActivityApplication(reviewerId: string, applicationId: string, input: { decision: 'APPROVE' | 'REJECT' | 'NEED_MORE'; comment?: string }) {
-    await assertUserHasAnyRole(reviewerId, ['REVIEWER', 'SYS_ADMIN'])
+    const reviewerRoles = await assertUserHasAnyRole(reviewerId, ['REVIEWER', 'SYS_ADMIN'])
     const application = await prisma.activityApplication.findUnique({
       where: { id: applicationId },
       include: {
@@ -96,6 +104,9 @@ export const approvalService = {
     if (!application) throw notFound('活动立项不存在')
     if (!['APPROVING', 'SUBMITTED'].includes(application.status)) {
       throw badRequest(`当前状态不可审核: ${application.status}`)
+    }
+    if (!reviewerRoles.includes('SYS_ADMIN') && application.currentReviewerId !== reviewerId) {
+      throw forbidden('当前审核任务未分配给该用户')
     }
 
     const reviewer = await prisma.user.findUnique({
@@ -215,6 +226,6 @@ export const approvalService = {
       sourceId: applicationId,
     })
 
-    return this.getActivityApplication(applicationId)
+    return toActivityApplicationDto(await getActivityApplicationOrThrow(applicationId))
   },
 }

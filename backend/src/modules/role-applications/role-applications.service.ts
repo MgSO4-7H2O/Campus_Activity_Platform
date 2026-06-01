@@ -1,5 +1,5 @@
 import prisma from '../../shared/prisma/client.js'
-import { badRequest, notFound } from '../../shared/errors/app-error.js'
+import { badRequest, conflict, notFound } from '../../shared/errors/app-error.js'
 import { pendingTasksService } from '../pending-tasks/pending-tasks.service.js'
 import { notificationsService } from '../notifications/notifications.service.js'
 import { createSystemLog } from '../../shared/utils/system-log.js'
@@ -16,6 +16,19 @@ export const roleApplicationsService = {
 
     if (['REVIEWER', 'ORGANIZER'].includes(data.appliedRole) && !data.organizationId) {
       throw badRequest('Organization ID is required when applying for REVIEWER or ORGANIZER.')
+    }
+
+    const existingActiveApplication = await prisma.roleApplication.findFirst({
+      where: {
+        applicantId: userId,
+        targetRoleCode: data.appliedRole,
+        organizationId: data.organizationId ?? null,
+        status: { in: ['SUBMITTED', 'APPROVING'] },
+      },
+    })
+
+    if (existingActiveApplication) {
+      throw conflict('请勿重复提交权限申请')
     }
 
     const application = await prisma.roleApplication.create({

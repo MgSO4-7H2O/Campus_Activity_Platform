@@ -12,11 +12,10 @@ export type ActivityApplicationStatus =
   (typeof ActivityApplicationStatus)[keyof typeof ActivityApplicationStatus]
 
 export const SignupStatus = {
-  PENDING: 'PENDING',
+  SUBMITTED: 'SUBMITTED',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
   CANCELED: 'CANCELED',
 } as const
 
 export type SignupStatus = (typeof SignupStatus)[keyof typeof SignupStatus]
-

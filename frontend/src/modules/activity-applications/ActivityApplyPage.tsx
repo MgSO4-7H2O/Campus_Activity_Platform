@@ -2,24 +2,102 @@ import { InboxOutlined, SaveOutlined, SendOutlined } from '@ant-design/icons'
 import {
   Alert, Button, Card, Col, DatePicker, Form, Input, InputNumber, Row, Select, Space, Steps, Typography, Upload, message,
 } from 'antd'
-import type { UploadProps } from 'antd'
-import { useState } from 'react'
+import type { UploadFile, UploadProps } from 'antd'
+import type { Dayjs } from 'dayjs'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import {
+  createActivityApplication,
+  submitActivityApplication,
+  uploadApplicationAttachment,
+} from '../../shared/api/activity-applications'
+import type { OrganizationDto, UpsertActivityApplicationBody } from '../../shared/api/dto'
+import { getApiErrorMessage } from '../../shared/api/error'
+import { listOrganizations } from '../../shared/api/organizations'
 import PageHeader from '../../shared/components/PageHeader'
-import { orgs } from '../../shared/mock/data'
 
 type Mode = 'draft' | 'submit'
+type DateValue = Dayjs | Date | string
+type ActivityApplyFormValue = {
+  title: string
+  organizationId: string
+  category: string
+  period: [DateValue, DateValue]
+  location?: string
+  expectedScale: number
+  budget: number
+  brief: string
+  plan: string
+  attachments?: UploadFile[]
+}
+type ValidationError = {
+  errorFields: unknown[]
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isValidationError(value: unknown): value is ValidationError {
+  return isRecord(value) && Array.isArray(value.errorFields)
+}
+
+function toIsoString(value: DateValue): string {
+  if (typeof value === 'string') return value
+  if (value instanceof Date) return value.toISOString()
+  return value.toDate().toISOString()
+}
+
+function toApplicationBody(values: ActivityApplyFormValue): UpsertActivityApplicationBody {
+  const [expectedStart, expectedEnd] = values.period
+  return {
+    title: values.title,
+    organizationId: values.organizationId,
+    brief: values.brief,
+    expectedStart: toIsoString(expectedStart),
+    expectedEnd: toIsoString(expectedEnd),
+    expectedScale: Number(values.expectedScale),
+    budget: Number(values.budget),
+    location: values.location,
+  }
+}
+
+function getUploadFileList(event: unknown): UploadFile[] {
+  if (Array.isArray(event)) return event
+  if (!isRecord(event) || !Array.isArray(event.fileList)) return []
+  return event.fileList as UploadFile[]
+}
+
+async function uploadAttachments(applicationId: string, files: UploadFile[] | undefined): Promise<void> {
+  const uploadFiles = files ?? []
+  for (const file of uploadFiles) {
+    if (!file.originFileObj) {
+      throw new Error(`Attachment ${file.name} has no file object`)
+    }
+    await uploadApplicationAttachment(applicationId, file.originFileObj)
+  }
+}
 
 export default function ActivityApplyPage() {
   const navigate = useNavigate()
-  const [form] = Form.useForm()
+  const [form] = Form.useForm<ActivityApplyFormValue>()
+  const [organizations, setOrganizations] = useState<OrganizationDto[]>([])
+  const [loadingOrganizations, setLoadingOrganizations] = useState(false)
   const [submitting, setSubmitting] = useState<Mode | null>(null)
+
+  useEffect(() => {
+    setLoadingOrganizations(true)
+    listOrganizations({ status: 'ACTIVE' })
+      .then(setOrganizations)
+      .catch((error: unknown) => message.error(getApiErrorMessage(error, '加载组织失败')))
+      .finally(() => setLoadingOrganizations(false))
+  }, [])
 
   const upload: UploadProps = {
     name: 'file',
     multiple: true,
-    beforeUpload: () => false, // 原型阶段不真正上传
+    beforeUpload: () => false,
     onChange: (info) => {
       if (info.fileList.length > 0) {
         message.success(`已选择 ${info.fileList.length} 个文件`)
@@ -27,16 +105,29 @@ export default function ActivityApplyPage() {
     },
   }
 
-  function onFinish(mode: Mode) {
-    return form.validateFields().then((values) => {
-      setSubmitting(mode)
-      setTimeout(() => {
-        setSubmitting(null)
-        message.success(mode === 'draft' ? '草稿已保存' : '已提交，自动生成审核待办')
-        navigate('/applications')
-      }, 400)
-      return values
-    })
+  async function onFinish(mode: Mode): Promise<void> {
+    let values: ActivityApplyFormValue
+    try {
+      values = await form.validateFields()
+    } catch (error: unknown) {
+      if (isValidationError(error)) return
+      throw error
+    }
+
+    setSubmitting(mode)
+    try {
+      const application = await createActivityApplication(toApplicationBody(values))
+      await uploadAttachments(application.id, values.attachments)
+      if (mode === 'submit') {
+        await submitActivityApplication(application.id)
+      }
+      message.success(mode === 'draft' ? '草稿已保存' : '已提交，自动生成审核待办')
+      navigate('/applications')
+    } catch (error: unknown) {
+      message.error(getApiErrorMessage(error, mode === 'draft' ? '保存失败' : '提交失败'))
+    } finally {
+      setSubmitting(null)
+    }
   }
 
   return (
@@ -46,10 +137,10 @@ export default function ActivityApplyPage() {
         subtitle="请按要求填写活动方案、上传材料后提交，提交后将自动生成审核待办"
         extra={
           <>
-            <Button icon={<SaveOutlined />} loading={submitting === 'draft'} onClick={() => onFinish('draft')}>
+            <Button icon={<SaveOutlined />} loading={submitting === 'draft'} onClick={() => { void onFinish('draft') }}>
               保存草稿
             </Button>
-            <Button type="primary" icon={<SendOutlined />} loading={submitting === 'submit'} onClick={() => onFinish('submit')}>
+            <Button type="primary" icon={<SendOutlined />} loading={submitting === 'submit'} onClick={() => { void onFinish('submit') }}>
               提交申请
             </Button>
           </>
@@ -77,7 +168,14 @@ export default function ActivityApplyPage() {
               <Row gutter={12}>
                 <Col xs={24} md={12}>
                   <Form.Item name="organizationId" label="发起组织" rules={[{ required: true, message: '请选择发起组织' }]}>
-                    <Select placeholder="选择你所在的组织" options={orgs.map((o) => ({ value: o.id, label: o.name }))} />
+                    <Select
+                      placeholder="选择你所在的组织"
+                      loading={loadingOrganizations}
+                      options={organizations.map((organization) => ({
+                        value: organization.id,
+                        label: organization.name,
+                      }))}
+                    />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
@@ -107,12 +205,12 @@ export default function ActivityApplyPage() {
                 </Col>
                 <Col xs={24} md={6}>
                   <Form.Item name="expectedScale" label="预计规模" rules={[{ required: true }]}>
-                    <InputNumber addonAfter="人" min={1} style={{ width: '100%' }} />
+                    <InputNumber suffix="人" min={1} style={{ width: '100%' }} />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={6}>
                   <Form.Item name="budget" label="预算" rules={[{ required: true }]}>
-                    <InputNumber addonAfter="元" min={0} style={{ width: '100%' }} />
+                    <InputNumber suffix="元" min={0} style={{ width: '100%' }} />
                   </Form.Item>
                 </Col>
               </Row>
@@ -125,7 +223,7 @@ export default function ActivityApplyPage() {
                 <Input.TextArea rows={6} placeholder="详细方案：流程安排、嘉宾邀请、人员分工、应急预案" />
               </Form.Item>
 
-              <Form.Item name="attachments" label="申请材料">
+              <Form.Item name="attachments" label="申请材料" valuePropName="fileList" getValueFromEvent={getUploadFileList}>
                 <Upload.Dragger {...upload}>
                   <p className="ant-upload-drag-icon">
                     <InboxOutlined />

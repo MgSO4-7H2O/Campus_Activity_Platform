@@ -97,6 +97,48 @@ describe('Auth flow', () => {
     expect(res.body?.error?.code).toBe('CONFLICT')
   })
 
+  it('rejects duplicate email registration', async () => {
+    await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'user1',
+      password: 'Password123!',
+      userType: 'student',
+      realName: '测试用户',
+      email: 'duplicate@example.com',
+    })
+
+    const res = await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'user2',
+      password: 'Password123!',
+      userType: 'teacher',
+      realName: '测试教师',
+      email: 'duplicate@example.com',
+    })
+
+    expect(res.status).toBe(409)
+    expect(res.body?.error?.code).toBe('CONFLICT')
+  })
+
+  it('rejects duplicate phone registration', async () => {
+    await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'user1',
+      password: 'Password123!',
+      userType: 'student',
+      realName: '测试用户',
+      phone: '13800000001',
+    })
+
+    const res = await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'user2',
+      password: 'Password123!',
+      userType: 'teacher',
+      realName: '测试教师',
+      phone: '13800000001',
+    })
+
+    expect(res.status).toBe(409)
+    expect(res.body?.error?.code).toBe('CONFLICT')
+  })
+
   it('logs in and gets /users/me', async () => {
     await request(createApp()).post('/api/v1/auth/register').send({
       username: 'user1',
@@ -135,6 +177,53 @@ describe('Auth flow', () => {
     })
     expect(res.status).toBe(401)
     expect(res.body?.error?.code).toBe('UNAUTHORIZED')
+  })
+
+  it('rejects banned user login', async () => {
+    await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'user1',
+      password: 'Password123!',
+      userType: 'student',
+      realName: '测试用户',
+    })
+    await prisma.user.update({
+      where: { username: 'user1' },
+      data: { status: 'BANNED' },
+    })
+
+    const res = await request(createApp()).post('/api/v1/auth/login').send({
+      username: 'user1',
+      password: 'Password123!',
+    })
+
+    expect(res.status).toBe(403)
+    expect(res.body?.error?.code).toBe('USER_INACTIVE')
+  })
+
+  it('rejects existing token after user is banned', async () => {
+    await request(createApp()).post('/api/v1/auth/register').send({
+      username: 'ban_token_user',
+      password: 'Password123!',
+      userType: 'student',
+      realName: '封禁令牌用户',
+    })
+
+    const loginRes = await request(createApp()).post('/api/v1/auth/login').send({
+      username: 'ban_token_user',
+      password: 'Password123!',
+    })
+    const token = loginRes.body?.data?.accessToken as string
+    await prisma.user.update({
+      where: { username: 'ban_token_user' },
+      data: { status: 'BANNED' },
+    })
+
+    const res = await request(createApp())
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(403)
+    expect(res.body?.error?.code).toBe('FORBIDDEN')
   })
 
   it('rejects /users/me when not logged in', async () => {

@@ -46,6 +46,12 @@ export const closureService = {
     const activity = await prisma.activity.findUnique({ where: { id: input.activityId } })
     if (!activity) throw notFound('活动不存在')
     if (activity.organizerId !== userId) throw badRequest('仅负责人可提交结项')
+    if (activity.status !== 'FINISHED') throw badRequest('仅已结束活动可提交结项')
+
+    const existing = await prisma.closureApplication.findUnique({
+      where: { activityId: input.activityId },
+    })
+    if (existing) throw badRequest('该活动已存在结项申请')
 
     const created = await prisma.closureApplication.create({
       data: {
