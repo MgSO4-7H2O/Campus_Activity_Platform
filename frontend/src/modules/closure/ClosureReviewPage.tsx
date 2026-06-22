@@ -1,17 +1,36 @@
 import { CheckOutlined, CloseOutlined, RollbackOutlined } from '@ant-design/icons'
-import { Button, Card, Descriptions, Empty, Input, Space, Tag, Typography, message } from 'antd'
+import { Button, Card, Descriptions, Empty, Input, Space, Spin, Tag, Typography, message } from 'antd'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import PageHeader from '../../shared/components/PageHeader'
 import { ApplicationStatusTag } from '../../shared/components/StatusTag'
-import { closures } from '../../shared/mock/data'
+import { useClosureApplication, useReviewClosure } from '../../shared/hooks/useClosures'
 
 export default function ClosureReviewPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const closure = closures.find((c) => c.id === id) ?? closures[0]
   const [comment, setComment] = useState('')
+
+  const { data: closure, isLoading, isError, error } = useClosureApplication(id)
+  const reviewMutation = useReviewClosure()
+
+  if (isLoading) {
+    return (
+      <Card>
+        <Spin style={{ display: 'block', margin: '40px auto' }} />
+      </Card>
+    )
+  }
+
+  if (isError) {
+    message.error(error instanceof Error ? error.message : '加载结项申请失败')
+    return (
+      <Card>
+        <Empty description="加载结项申请失败" />
+      </Card>
+    )
+  }
 
   if (!closure) {
     return (
@@ -21,13 +40,23 @@ export default function ClosureReviewPage() {
     )
   }
 
-  function decide(label: string) {
+  function decide(label: string, decision: 'APPROVE' | 'REJECT' | 'NEED_MORE') {
     if (!comment.trim()) {
       message.warning('请填写审核意见')
       return
     }
-    message.success(`已${label}`)
-    navigate('/approvals/closures')
+    reviewMutation.mutate(
+      { id: id!, body: { decision, comment: comment.trim() } },
+      {
+        onSuccess: () => {
+          message.success(`已${label}`)
+          navigate('/approvals/closures')
+        },
+        onError: (err) => {
+          message.error(err instanceof Error ? err.message : '审核操作失败')
+        },
+      },
+    )
   }
 
   return (
@@ -49,8 +78,8 @@ export default function ClosureReviewPage() {
           <Descriptions.Item label="附件">
             <Space wrap>
               {closure.attachments.map((a) => (
-                <Tag key={a.name} color="blue">
-                  📎 {a.name} · {a.size}
+                <Tag key={a.id} color="blue">
+                  📎 {a.fileName} · {a.fileSize}
                 </Tag>
               ))}
             </Space>
@@ -64,15 +93,34 @@ export default function ClosureReviewPage() {
       </Card>
 
       <Card title="审核意见">
-        <Input.TextArea rows={4} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="请填写审核意见" />
+        <Input.TextArea
+          rows={4}
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="请填写审核意见"
+        />
         <Space style={{ marginTop: 12 }}>
-          <Button type="primary" icon={<CheckOutlined />} onClick={() => decide('通过')}>
+          <Button
+            type="primary"
+            icon={<CheckOutlined />}
+            loading={reviewMutation.isPending}
+            onClick={() => decide('通过', 'APPROVE')}
+          >
             通过
           </Button>
-          <Button icon={<RollbackOutlined />} onClick={() => decide('要求补材料')}>
+          <Button
+            icon={<RollbackOutlined />}
+            loading={reviewMutation.isPending}
+            onClick={() => decide('要求补材料', 'NEED_MORE')}
+          >
             要求补材料
           </Button>
-          <Button danger icon={<CloseOutlined />} onClick={() => decide('驳回')}>
+          <Button
+            danger
+            icon={<CloseOutlined />}
+            loading={reviewMutation.isPending}
+            onClick={() => decide('驳回', 'REJECT')}
+          >
             驳回
           </Button>
         </Space>

@@ -14,11 +14,12 @@ export async function listActivities(params?: {
   page?: number
   pageSize?: number
 }) {
-  const res = await apiClient.get<ApiSuccess<Paginated<ActivityDto>>>(
+  const res = await apiClient.get<{ data: ActivityDto[]; meta: { total: number; page: number; pageSize: number } }>(
     '/activities',
     { params }
   )
-  return res.data.data
+  const { data: items, meta } = res.data
+  return { items, total: meta.total, page: meta.page, pageSize: meta.pageSize } as Paginated<ActivityDto>
 }
 
 /** 6.2 我负责的活动 */
@@ -27,11 +28,12 @@ export async function listMyActivities(params?: {
   page?: number
   pageSize?: number
 }) {
-  const res = await apiClient.get<ApiSuccess<Paginated<ActivityDto>>>(
+  const res = await apiClient.get<{ data: ActivityDto[]; meta: { total: number; page: number; pageSize: number } }>(
     '/activities/me',
     { params }
   )
-  return res.data.data
+  const { data: items, meta } = res.data
+  return { items, total: meta.total, page: meta.page, pageSize: meta.pageSize } as Paginated<ActivityDto>
 }
 
 /** 6.3 活动详情 */

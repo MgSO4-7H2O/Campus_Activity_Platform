@@ -31,11 +31,12 @@ export async function listAdminRoleApplications(params?: {
   page?: number
   pageSize?: number
 }) {
-  const res = await apiClient.get<ApiSuccess<Paginated<RoleApplicationDto>>>(
+  const res = await apiClient.get<{ data: RoleApplicationDto[]; meta: { total: number; page: number; pageSize: number } }>(
     '/admin/role-applications',
     { params }
   )
-  return res.data.data
+  const { data: items, meta } = res.data
+  return { items, total: meta.total, page: meta.page, pageSize: meta.pageSize } as Paginated<RoleApplicationDto>
 }
 
 /** 1.4 查询权限申请详情 */

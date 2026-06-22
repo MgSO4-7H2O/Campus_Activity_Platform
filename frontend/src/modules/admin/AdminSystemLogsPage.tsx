@@ -1,10 +1,9 @@
-import { Card, DatePicker, Select, Space, Table, Tag, Typography } from 'antd'
-import { useEffect, useMemo, useState } from 'react'
+import { Card, DatePicker, message, Select, Space, Table, Tag, Typography } from 'antd'
+import { useEffect, useState } from 'react'
 
 import PageHeader from '../../shared/components/PageHeader'
-import { listSystemLogs } from '../../shared/api/admin'
+import { useSystemLogs } from '../../shared/hooks/useAdmin'
 import type { SystemLogAction, SystemLogDto } from '../../shared/api/dto'
-import { fallbackSystemLogs } from '../../shared/mock/data'
 
 const ACTION_OPTIONS: { value: SystemLogAction; label: string }[] = [
   { value: 'AUTH_LOGIN', label: '登录' },
@@ -24,40 +23,19 @@ const ACTION_LABEL: Record<SystemLogAction, string> = Object.fromEntries(
 ) as Record<SystemLogAction, string>
 
 export default function AdminSystemLogsPage() {
-  const [logs, setLogs] = useState<SystemLogDto[]>([])
-  const [loading, setLoading] = useState(true)
-  const [usingFallback, setUsingFallback] = useState(false)
   const [actionFilter, setActionFilter] = useState<SystemLogAction | undefined>()
   const [range, setRange] = useState<[string?, string?]>([])
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    listSystemLogs({
-      action: actionFilter,
-      from: range[0],
-      to: range[1],
-      pageSize: 100,
-    })
-      .then((p) => {
-        if (!cancelled) setLogs(p.items)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLogs(fallbackSystemLogs)
-          setUsingFallback(true)
-        }
-      })
-      .finally(() => !cancelled && setLoading(false))
-    return () => {
-      cancelled = true
-    }
-  }, [actionFilter, range])
+  const { data, isLoading, error } = useSystemLogs({
+    action: actionFilter,
+    from: range[0],
+    to: range[1],
+    pageSize: 100,
+  })
 
-  const filtered = useMemo(() => {
-    if (!usingFallback) return logs
-    return logs.filter((l) => (actionFilter ? l.action === actionFilter : true))
-  }, [logs, usingFallback, actionFilter])
+  useEffect(() => {
+    if (error) message.error('加载系统日志失败')
+  }, [error])
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -66,11 +44,6 @@ export default function AdminSystemLogsPage() {
         subtitle="登录、审批、签到、公告等关键操作的审计日志。"
       />
       <Card>
-        {usingFallback && (
-          <Typography.Text type="warning" style={{ fontSize: 12 }}>
-            当前为 Mock 数据，待后端 <code>/admin/system-logs</code> 上线后自动切换
-          </Typography.Text>
-        )}
         <Space style={{ marginBottom: 12 }} wrap>
           <Select
             allowClear
@@ -90,8 +63,8 @@ export default function AdminSystemLogsPage() {
         <Table<SystemLogDto>
           rowKey="id"
           size="small"
-          loading={loading}
-          dataSource={filtered}
+          loading={isLoading}
+          dataSource={data?.items ?? []}
           pagination={{ pageSize: 20 }}
           columns={[
             {

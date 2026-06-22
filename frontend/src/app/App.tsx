@@ -1,11 +1,23 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { Route, Routes } from 'react-router-dom'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+      refetchOnWindowFocus: true,
+    },
+  },
+})
 
 import ActivityDetailPage from '../modules/activities/ActivityDetailPage'
 import ActivityListPage from '../modules/activities/ActivityListPage'
 import MyActivitiesPage from '../modules/activities/MyActivitiesPage'
 import ActivityApplyPage from '../modules/activity-applications/ActivityApplyPage'
+import ApplicationDetailPage from '../modules/activity-applications/ApplicationDetailPage'
 import MyApplicationsPage from '../modules/activity-applications/MyApplicationsPage'
 import AdminDashboardPage from '../modules/admin/AdminDashboardPage'
 import AdminOrganizationsPage from '../modules/admin/AdminOrganizationsPage'
@@ -39,7 +51,8 @@ import AppLayout from '../shared/components/AppLayout'
 
 export default function App() {
   return (
-    <ConfigProvider locale={zhCN} theme={{ token: { borderRadius: 8 } }}>
+    <QueryClientProvider client={queryClient}>
+      <ConfigProvider locale={zhCN} theme={{ token: { borderRadius: 8 } }}>
       <Routes>
         <Route element={<AppLayout />}>
           {/* 公开页面 */}
@@ -114,6 +127,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <ActivityApplyPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="applications/:id"
+            element={
+              <RequireAuth>
+                <ApplicationDetailPage />
               </RequireAuth>
             }
           />
@@ -271,5 +292,6 @@ export default function App() {
         </Route>
       </Routes>
     </ConfigProvider>
+    </QueryClientProvider>
   )
 }

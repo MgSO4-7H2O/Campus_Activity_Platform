@@ -1,96 +1,99 @@
 import { ClockCircleOutlined } from '@ant-design/icons'
-import { Badge, Button, Card, Empty, Input, Space, Spin, Table, Typography, message } from 'antd'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Badge, Button, Card, Empty, Input, Space, Spin, Table, Tag, Typography } from 'antd'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import PageHeader from '../../shared/components/PageHeader'
-import { listMyPendingTasks } from '../../shared/api/pending-tasks'
-import { getApiErrorMessage } from '../../shared/api/error'
+import { useMyPendingTasks } from '../../shared/hooks/usePendingTasks'
 import type { PendingTaskDto } from '../../shared/api/dto'
 
 export default function ReviewerInboxPage() {
   const navigate = useNavigate()
   const [keyword, setKeyword] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [tasks, setTasks] = useState<PendingTaskDto[]>([])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await listMyPendingTasks({ status: 'PENDING' })
-      setTasks(data.filter((t) => t.relatedResourceType === 'ACTIVITY_APPLICATION'))
-    } catch (err) {
-      message.error(getApiErrorMessage(err, '加载审核待办失败'))
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const { data = [], isLoading, refetch } = useMyPendingTasks({
+    status: 'PENDING',
+  })
 
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  const data = useMemo(
+  const filtered = useMemo(
     () =>
-      tasks.filter((t) =>
-        keyword ? t.title.includes(keyword) || (t.description ?? '').includes(keyword) : true
+      data.filter((t: PendingTaskDto) =>
+        keyword
+          ? t.title.includes(keyword) || (t.description ?? '').includes(keyword)
+          : true
       ),
-    [tasks, keyword]
+    [data, keyword],
   )
-
-  function goReview(applicationId: string) {
-    navigate(`/approvals/${applicationId}`)
-  }
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <PageHeader
-        title={
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
           <Space>
-            立项审核待办
-            <Badge count={tasks.length} />
+            <Typography.Title level={3} style={{ margin: 0 }}>
+              立项审核待办
+            </Typography.Title>
+            <Badge count={data.length} />
           </Space>
-        }
-        subtitle="按提交时间排序，点击进入审核详情"
-      />
+          <br />
+          <Typography.Text type="secondary">按提交时间排序，点击进入审核详情</Typography.Text>
+        </div>
+        <Button onClick={() => refetch()}>刷新</Button>
+      </div>
 
       <Card>
         <Space style={{ marginBottom: 12 }}>
           <Input.Search
-            placeholder="搜索活动名称 / 说明"
+            placeholder="搜索活动名称 / 描述"
             style={{ width: 280 }}
             onSearch={setKeyword}
             allowClear
           />
-          <Button onClick={load}>刷新</Button>
         </Space>
 
-        {loading ? (
-          <Spin />
-        ) : (
-          <Table
+        <Spin spinning={isLoading}>
+          <Table<PendingTaskDto>
             size="middle"
             rowKey="id"
-            dataSource={data}
+            dataSource={filtered}
             pagination={{ pageSize: 10 }}
-            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无待审核的立项申请" /> }}
+            locale={{ emptyText: <Empty description="暂无待办" /> }}
             columns={[
               {
-                title: '活动名称',
+                title: '标题',
                 dataIndex: 'title',
                 render: (v: string, row) => (
-                  <Typography.Link onClick={() => goReview(row.relatedResourceId)}>{v}</Typography.Link>
+                  <Typography.Link onClick={() => navigate(`/approvals/${row.relatedResourceId}`)}>
+                    {v}
+                  </Typography.Link>
                 ),
               },
-              { title: '说明', dataIndex: 'description', render: (v: string | null) => v ?? '—' },
               {
-                title: '提交时间',
+                title: '描述',
+                dataIndex: 'description',
+                render: (v: string | null) => v ?? '—',
+              },
+              {
+                title: '类型',
+                dataIndex: 'relatedResourceType',
+                width: 130,
+                render: (v: string) => {
+                  const label: Record<string, string> = {
+                    ROLE_APPLICATION: '角色申请',
+                    ACTIVITY_APPLICATION: '活动立项',
+                    CLOSURE_APPLICATION: '结项申请',
+                    RECRUITMENT_SIGNUP: '报名审核',
+                  }
+                  return <Tag color="purple">{label[v] ?? v}</Tag>
+                },
+              },
+              {
+                title: '创建时间',
                 dataIndex: 'createdAt',
-                width: 200,
+                width: 170,
                 render: (v: string) => (
                   <Space size={4}>
                     <ClockCircleOutlined />
-                    {new Date(v).toLocaleString('zh-CN')}
+                    {v}
                   </Space>
                 ),
               },
@@ -99,14 +102,18 @@ export default function ReviewerInboxPage() {
                 key: 'action',
                 width: 110,
                 render: (_, row) => (
-                  <Button type="primary" size="small" onClick={() => goReview(row.relatedResourceId)}>
+                  <Button
+                    type="primary"
+                    size="small"
+                    onClick={() => navigate(`/approvals/${row.relatedResourceId}`)}
+                  >
                     立即审核
                   </Button>
                 ),
               },
             ]}
           />
-        )}
+        </Spin>
       </Card>
     </Space>
   )

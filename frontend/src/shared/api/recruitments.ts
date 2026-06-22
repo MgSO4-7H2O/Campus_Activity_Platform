@@ -22,11 +22,12 @@ export async function listRecruitments(params?: {
   page?: number
   pageSize?: number
 }) {
-  const res = await apiClient.get<ApiSuccess<Paginated<RecruitmentDto>>>(
+  const res = await apiClient.get<{ data: RecruitmentDto[]; meta: { total: number; page: number; pageSize: number } }>(
     '/recruitments',
     { params }
   )
-  return res.data.data
+  const { data: items, meta } = res.data
+  return { items, total: meta.total, page: meta.page, pageSize: meta.pageSize } as Paginated<RecruitmentDto>
 }
 
 /** 7.3 招募详情 */

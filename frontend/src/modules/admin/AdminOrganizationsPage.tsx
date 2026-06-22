@@ -12,22 +12,22 @@ import {
   Typography,
   message,
 } from 'antd'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import PageHeader from '../../shared/components/PageHeader'
 import {
   createOrganization,
-  getOrganizationTree,
   updateOrganization,
 } from '../../shared/api/organizations'
 import { getApiErrorMessage } from '../../shared/api/error'
+import { useOrgTree, orgKeys } from '../../shared/hooks/useOrganizations'
 import type {
   CreateOrganizationBody,
   OrganizationDto,
   OrganizationNode,
   OrganizationType,
 } from '../../shared/api/dto'
-import { fallbackOrgTree } from '../../shared/mock/data'
 
 const TYPE_OPTIONS: { value: OrganizationType; label: string }[] = [
   { value: 'department', label: '院系' },
@@ -58,32 +58,38 @@ function flatten(nodes: OrganizationNode[], depth = 0): (OrganizationDto & { dep
 }
 
 export default function AdminOrganizationsPage() {
-  const [tree, setTree] = useState<OrganizationNode[]>([])
-  const [loading, setLoading] = useState(true)
-  const [usingFallback, setUsingFallback] = useState(false)
+  const queryClient = useQueryClient()
+  const { data: tree, isLoading, error } = useOrgTree()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<OrganizationDto | null>(null)
   const [form] = Form.useForm<CreateOrganizationBody & { id?: string }>()
 
-  async function reload() {
-    setLoading(true)
-    try {
-      const t = await getOrganizationTree()
-      setTree(t)
-      setUsingFallback(false)
-    } catch {
-      setTree(fallbackOrgTree)
-      setUsingFallback(true)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const flat = useMemo(() => flatten(tree ?? []), [tree])
 
-  useEffect(() => {
-    reload()
-  }, [])
+  const createMutation = useMutation({
+    mutationFn: createOrganization,
+    onSuccess: () => {
+      message.success('已新增组织')
+      queryClient.invalidateQueries({ queryKey: orgKeys.tree })
+      setModalOpen(false)
+    },
+    onError: (err) => {
+      message.error(getApiErrorMessage(err, '保存失败'))
+    },
+  })
 
-  const flat = useMemo(() => flatten(tree), [tree])
+  const updateMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Parameters<typeof updateOrganization>[1] }) =>
+      updateOrganization(id, body),
+    onSuccess: () => {
+      message.success('已更新组织')
+      queryClient.invalidateQueries({ queryKey: orgKeys.tree })
+      setModalOpen(false)
+    },
+    onError: (err) => {
+      message.error(getApiErrorMessage(err, '保存失败'))
+    },
+  })
 
   function openCreate() {
     setEditing(null)
@@ -104,24 +110,15 @@ export default function AdminOrganizationsPage() {
 
   async function onSubmit() {
     const values = await form.validateFields()
-    try {
-      if (usingFallback) {
-        message.warning('当前为 Mock 模式，提交未真实生效；后端就绪后将打通。')
-        setModalOpen(false)
-        return
-      }
-      if (editing) {
-        await updateOrganization(editing.id, values)
-        message.success('已更新组织')
-      } else {
-        await createOrganization(values)
-        message.success('已新增组织')
-      }
-      setModalOpen(false)
-      reload()
-    } catch (err) {
-      message.error(getApiErrorMessage(err, '保存失败'))
+    if (editing) {
+      updateMutation.mutate({ id: editing.id, body: values })
+    } else {
+      createMutation.mutate(values)
     }
+  }
+
+  function handleToggleStatus(org: OrganizationDto, newStatus: 'ACTIVE' | 'DISABLED') {
+    updateMutation.mutate({ id: org.id, body: { status: newStatus } })
   }
 
   return (
@@ -136,14 +133,14 @@ export default function AdminOrganizationsPage() {
         }
       />
       <Card>
-        {usingFallback && (
-          <Typography.Text type="warning" style={{ fontSize: 12 }}>
-            当前为 Mock 数据。后端 <code>/admin/organizations</code> 接口上线后此页面将打通。
+        {error && (
+          <Typography.Text type="danger" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+            加载失败：{getApiErrorMessage(error, '未知错误')}
           </Typography.Text>
         )}
         <Table
           rowKey="id"
-          loading={loading}
+          loading={isLoading}
           dataSource={flat}
           pagination={false}
           columns={[
@@ -184,14 +181,7 @@ export default function AdminOrganizationsPage() {
                       type="link"
                       size="small"
                       danger
-                      onClick={async () => {
-                        if (usingFallback) {
-                          message.warning('Mock 模式，未真实生效')
-                          return
-                        }
-                        await updateOrganization(r.id, { status: 'DISABLED' })
-                        reload()
-                      }}
+                      onClick={() => handleToggleStatus(r, 'DISABLED')}
                     >
                       停用
                     </Button>
@@ -199,14 +189,7 @@ export default function AdminOrganizationsPage() {
                     <Button
                       type="link"
                       size="small"
-                      onClick={async () => {
-                        if (usingFallback) {
-                          message.warning('Mock 模式，未真实生效')
-                          return
-                        }
-                        await updateOrganization(r.id, { status: 'ACTIVE' })
-                        reload()
-                      }}
+                      onClick={() => handleToggleStatus(r, 'ACTIVE')}
                     >
                       启用
                     </Button>
@@ -224,6 +207,7 @@ export default function AdminOrganizationsPage() {
         onCancel={() => setModalOpen(false)}
         onOk={onSubmit}
         destroyOnHidden
+        confirmLoading={createMutation.isPending || updateMutation.isPending}
       >
         <Form form={form} layout="vertical">
           <Form.Item name="name" label="名称" rules={[{ required: true }]}>

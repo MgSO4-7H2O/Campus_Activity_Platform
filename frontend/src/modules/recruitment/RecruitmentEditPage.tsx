@@ -1,30 +1,72 @@
 import { SaveOutlined, SendOutlined } from '@ant-design/icons'
 import {
-  Alert, Button, Card, Col, DatePicker, Form, Input, InputNumber, Row, Select, Space, Switch, Typography, message,
+  Alert, Button, Card, Col, DatePicker, Form, Input, InputNumber, Row, Select, Space, Spin, Switch, Typography, message,
 } from 'antd'
-import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import PageHeader from '../../shared/components/PageHeader'
-import { activities, recruitments } from '../../shared/mock/data'
+import { useActivity } from '../../shared/hooks/useActivities'
+import { useRecruitments, useCreateRecruitment, useUpdateRecruitment, usePublishRecruitment } from '../../shared/hooks/useRecruitments'
+import type { UpsertRecruitmentBody } from '../../shared/api/dto'
 
 export default function RecruitmentEditPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [form] = Form.useForm()
-  const activity = activities.find((a) => a.id === id)
-  const recruitment = id ? recruitments[id] : undefined
-  const [submitting, setSubmitting] = useState<'save' | 'publish' | null>(null)
+
+  const { data: activity, isLoading: activityLoading } = useActivity(id)
+  const { data: recruitmentsList, isLoading: listLoading } = useRecruitments()
+
+  const createMutation = useCreateRecruitment()
+  const updateMutation = useUpdateRecruitment()
+  const publishMutation = usePublishRecruitment()
+
+  const recruitment = recruitmentsList?.items?.find((r) => r.activityId === id)
+  const isLoading = activityLoading || listLoading
+  const isSaving = createMutation.isPending || updateMutation.isPending || publishMutation.isPending
 
   function handle(mode: 'save' | 'publish') {
-    return form.validateFields().then(() => {
-      setSubmitting(mode)
-      setTimeout(() => {
-        setSubmitting(null)
+    return form.validateFields().then(async (values) => {
+      const body: UpsertRecruitmentBody = {
+        activityId: id!,
+        title: `招募 - ${activity?.title ?? ''}`,
+        capacity: values.capacity,
+        registrationStart: values.period[0].toISOString(),
+        registrationEnd: values.period[1].toISOString(),
+        allowedUserTypes: values.userTypes,
+        allowedGrades: values.gradeLimit?.length > 0 ? values.gradeLimit : undefined,
+        allowedMajors: values.majorLimit?.length > 0 ? values.majorLimit : undefined,
+        requiresAttachment: values.needMaterial,
+      }
+      try {
+        let recruitmentId: string
+        if (recruitment) {
+          await updateMutation.mutateAsync({ id: recruitment.id, body })
+          recruitmentId = recruitment.id
+        } else {
+          const created = await createMutation.mutateAsync(body)
+          recruitmentId = created.id
+        }
+        if (mode === 'publish') {
+          await publishMutation.mutateAsync(recruitmentId)
+        }
         message.success(mode === 'save' ? '草稿已保存' : '已发布招募，活动进入 recruiting 状态')
         navigate(`/activities/${id}`)
-      }, 350)
+      } catch (err: any) {
+        message.error(err?.message ?? '操作失败')
+      }
     })
+  }
+
+  if (isLoading) {
+    return (
+      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <PageHeader title="加载中..." />
+        <div style={{ textAlign: 'center', padding: 80 }}>
+          <Spin size="large" />
+        </div>
+      </Space>
+    )
   }
 
   return (
@@ -34,10 +76,10 @@ export default function RecruitmentEditPage() {
         subtitle={activity ? `${activity.title} · 招募发布` : ''}
         extra={
           <>
-            <Button icon={<SaveOutlined />} loading={submitting === 'save'} onClick={() => handle('save')}>
+            <Button icon={<SaveOutlined />} loading={isSaving} onClick={() => handle('save')}>
               保存草稿
             </Button>
-            <Button type="primary" icon={<SendOutlined />} loading={submitting === 'publish'} onClick={() => handle('publish')}>
+            <Button type="primary" icon={<SendOutlined />} loading={isSaving} onClick={() => handle('publish')}>
               发布招募
             </Button>
           </>
@@ -52,10 +94,10 @@ export default function RecruitmentEditPage() {
               layout="vertical"
               initialValues={{
                 capacity: recruitment?.capacity ?? activity?.capacity ?? 50,
-                userTypes: recruitment?.userTypes ?? ['STUDENT'],
-                needMaterial: recruitment?.needMaterial ?? false,
-                gradeLimit: recruitment?.gradeLimit ?? [],
-                majorLimit: recruitment?.majorLimit ?? [],
+                userTypes: recruitment?.allowedUserTypes ?? ['STUDENT'],
+                needMaterial: recruitment?.requiresAttachment ?? false,
+                gradeLimit: recruitment?.allowedGrades ?? [],
+                majorLimit: recruitment?.allowedMajors ?? [],
               }}
             >
               <Form.Item name="period" label="报名时间窗口" rules={[{ required: true }]}>

@@ -9,11 +9,12 @@ export async function listNotifications(params?: {
   page?: number
   pageSize?: number
 }) {
-  const res = await apiClient.get<ApiSuccess<Paginated<NotificationDto>>>(
+  const res = await apiClient.get<{ data: NotificationDto[]; meta: { total: number; page: number; pageSize: number } }>(
     '/notifications',
     { params }
   )
-  return res.data.data
+  const { data: items, meta } = res.data
+  return { items, total: meta.total, page: meta.page, pageSize: meta.pageSize } as Paginated<NotificationDto>
 }
 
 /** 12.2 未读数（用于顶栏 badge） */

@@ -1,13 +1,16 @@
-import { Alert, Button, Card, Col, Form, Input, Row, Select, Space, Table, Tag, Typography, message } from 'antd'
-import { useState } from 'react'
+import { Alert, Button, Card, Col, Form, Input, Row, Select, Space, Spin, Table, Tag, Typography, message } from 'antd'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 
 import PageHeader from '../../shared/components/PageHeader'
 import { ApplicationStatusTag } from '../../shared/components/StatusTag'
-import { myRoleApplications, orgs, type RoleApplication } from '../../shared/mock/data'
 import { useAuthStore } from '../../shared/auth/store'
+import { useOrganizations } from '../../shared/hooks/useOrganizations'
+import { createRoleApplication, listMyRoleApplications } from '../../shared/api/role-applications'
+import type { CreateRoleApplicationBody, RoleApplicationDto, RoleAppliedRole } from '../../shared/api/dto'
 
 type ApplyForm = {
-  appliedRole: 'ORGANIZER' | 'REVIEWER' | 'SYS_ADMIN'
+  appliedRole: RoleAppliedRole
   organizationId?: string
   reason: string
 }
@@ -20,10 +23,42 @@ const ROLE_OPTIONS = [
 
 export default function PermissionApplyPage() {
   const me = useAuthStore((s) => s.user)
+  const qc = useQueryClient()
   const [form] = Form.useForm<ApplyForm>()
-  const [appliedRole, setAppliedRole] = useState<ApplyForm['appliedRole']>()
-  const [list, setList] = useState<RoleApplication[]>(myRoleApplications)
+  const [appliedRole, setAppliedRole] = useState<RoleAppliedRole>()
   const [submitting, setSubmitting] = useState(false)
+
+  const { data: orgs } = useOrganizations({ status: 'ACTIVE' })
+
+  const {
+    data: list = [],
+    isLoading: listLoading,
+    error: listError,
+  } = useQuery({
+    queryKey: ['role-applications', 'me'],
+    queryFn: listMyRoleApplications,
+  })
+
+  useEffect(() => {
+    if (listError) {
+      message.error('加载申请记录失败')
+    }
+  }, [listError])
+
+  const createMutation = useMutation({
+    mutationFn: (body: CreateRoleApplicationBody) => createRoleApplication(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['role-applications', 'me'] })
+      form.resetFields()
+      setAppliedRole(undefined)
+      setSubmitting(false)
+      message.success('申请已提交，等待管理员审核')
+    },
+    onError: () => {
+      setSubmitting(false)
+      message.error('提交失败，请稍后重试')
+    },
+  })
 
   const needOrg = appliedRole === 'ORGANIZER' || appliedRole === 'REVIEWER'
   const reviewerOnlyTeacher = appliedRole === 'REVIEWER' && me?.userType !== 'TEACHER'
@@ -34,22 +69,11 @@ export default function PermissionApplyPage() {
       return
     }
     setSubmitting(true)
-    const orgName = orgs.find((o) => o.id === values.organizationId)?.name
-    const next: RoleApplication = {
-      id: `role-${Date.now()}`,
+    createMutation.mutate({
       appliedRole: values.appliedRole,
-      organizationName: orgName,
+      organizationId: values.organizationId,
       reason: values.reason,
-      status: 'submitted',
-      submittedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
-    }
-    setTimeout(() => {
-      setList([next, ...list])
-      form.resetFields()
-      setAppliedRole(undefined)
-      setSubmitting(false)
-      message.success('申请已提交，等待管理员审核')
-    }, 350)
+    })
   }
 
   return (
@@ -105,7 +129,7 @@ export default function PermissionApplyPage() {
                 >
                   <Select
                     placeholder="选择组织"
-                    options={orgs.map((o) => ({ value: o.id, label: o.name }))}
+                    options={(orgs ?? []).map((o) => ({ value: o.id, label: o.name }))}
                   />
                 </Form.Item>
               )}
@@ -124,23 +148,33 @@ export default function PermissionApplyPage() {
 
         <Col xs={24} lg={12}>
           <Card title="我的权限申请">
-            <Table
-              size="small"
-              rowKey="id"
-              dataSource={list}
-              pagination={false}
-              locale={{ emptyText: '暂无申请记录' }}
-              columns={[
-                { title: '申请角色', dataIndex: 'appliedRole', render: (v: string) => <Tag color="blue">{v}</Tag> },
-                { title: '组织', dataIndex: 'organizationName', render: (v?: string) => v ?? '-' },
-                {
-                  title: '状态',
-                  dataIndex: 'status',
-                  render: (v: RoleApplication['status']) => <ApplicationStatusTag status={v} />,
-                },
-                { title: '提交时间', dataIndex: 'submittedAt' },
-              ]}
-            />
+            <Spin spinning={listLoading}>
+              <Table<RoleApplicationDto>
+                size="small"
+                rowKey="id"
+                dataSource={list}
+                pagination={false}
+                locale={{ emptyText: '暂无申请记录' }}
+                columns={[
+                  {
+                    title: '申请角色',
+                    dataIndex: 'appliedRole',
+                    render: (v: string) => <Tag color="blue">{v}</Tag>,
+                  },
+                  {
+                    title: '组织',
+                    dataIndex: 'organizationName',
+                    render: (v?: string) => v ?? '—',
+                  },
+                  {
+                    title: '状态',
+                    dataIndex: 'status',
+                    render: (v: RoleApplicationDto['status']) => <ApplicationStatusTag status={v} />,
+                  },
+                  { title: '提交时间', dataIndex: 'submittedAt', render: (v: string | null) => v ?? '—' },
+                ]}
+              />
+            </Spin>
           </Card>
         </Col>
       </Row>

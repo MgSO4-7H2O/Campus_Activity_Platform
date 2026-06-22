@@ -106,11 +106,21 @@ export default function ActivityApplyPage() {
   }
 
   async function onFinish(mode: Mode): Promise<void> {
+    message.loading({ content: mode === 'submit' ? '正在提交...' : '正在保存...', key: 'submit' })
     let values: ActivityApplyFormValue
     try {
       values = await form.validateFields()
     } catch (error: unknown) {
-      if (isValidationError(error)) return
+      if (isValidationError(error)) {
+        message.destroy('submit')
+        const errorFields = (error as ValidationError).errorFields as { name: (string | number)[] }[]
+        if (errorFields.length > 0) {
+          const firstName = errorFields[0].name.join('.')
+          form.scrollToField(firstName)
+        }
+        message.warning('请完善表单中的必填字段（活动简介至少30字，活动方案至少50字）')
+        return
+      }
       throw error
     }
 

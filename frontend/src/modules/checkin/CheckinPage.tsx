@@ -1,27 +1,15 @@
-import { CheckCircleTwoTone, PlusOutlined, QrcodeOutlined, ScanOutlined } from '@ant-design/icons'
+import { CheckCircleTwoTone, LoginOutlined, PlusOutlined, QrcodeOutlined, ScanOutlined } from '@ant-design/icons'
 import {
   Alert, Button, Card, Col, Empty, Form, Input, Modal, Row, Segmented, Space, Spin, Statistic, Table, Tabs, Tag, Typography, message,
 } from 'antd'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-import PageHeader from '../../shared/components/PageHeader'
-import {
-  closeCheckinSession,
-  createCheckinSession,
-  getActivity,
-  listCheckinRecords,
-  listCheckinSessions,
-  manualCheckin,
-  openCheckinSession,
-} from '../../shared/api'
-import { getApiErrorMessage } from '../../shared/api/error'
-import type {
-  ActivityDto,
-  CheckinMethod,
-  CheckinRecordDto,
-  CheckinSessionDto,
-} from '../../shared/api/dto'
+import { openCheckinSession, closeCheckinSession, performCheckin } from '../../shared/api/checkin'
+import { useActivity } from '../../shared/hooks/useActivities'
+import { useCheckinRecords, useCheckinSessions, useCreateCheckinSession } from '../../shared/hooks/useCheckin'
+import { useAuthStore, hasRole } from '../../shared/auth/store'
+import type { CheckinMethod, CheckinRecordDto, CheckinSessionDto } from '../../shared/api/dto'
 
 const METHOD_LABEL: Record<CheckinMethod, string> = {
   QRCODE: '二维码',
@@ -29,91 +17,120 @@ const METHOD_LABEL: Record<CheckinMethod, string> = {
   MANUAL: '手动签到',
 }
 
-const STATUS_LABEL: Record<CheckinSessionDto['status'], { text: string; color: string }> = {
-  DRAFT: { text: '未开始', color: 'default' },
-  OPEN: { text: '签到中', color: 'green' },
-  CLOSED: { text: '已结束', color: 'red' },
-}
-
 export default function CheckinPage() {
   const { id } = useParams()
-  const activityId = id ?? ''
-  const [activity, setActivity] = useState<ActivityDto | null>(null)
-  const [sessions, setSessions] = useState<CheckinSessionDto[]>([])
-  const [loading, setLoading] = useState(true)
+  const user = useAuthStore((s) => s.user)
+  const isOrganizer = hasRole(user, 'ORGANIZER') || hasRole(user, 'SYS_ADMIN')
+  const { data: activity } = useActivity(id)
+  const { data: sessions, isLoading, isError, refetch } = useCheckinSessions(id)
+  const createMutation = useCreateCheckinSession()
   const [createOpen, setCreateOpen] = useState(false)
-  const [creating, setCreating] = useState(false)
   const [activeKey, setActiveKey] = useState<string>('')
-
-  const loadSessions = useCallback(async () => {
-    if (!activityId) return
-    setLoading(true)
-    try {
-      const data = await listCheckinSessions(activityId)
-      setSessions(data)
-      setActiveKey((prev) => (prev && data.some((s) => s.id === prev) ? prev : data[0]?.id ?? ''))
-    } catch (err) {
-      message.error(getApiErrorMessage(err, '加载签到场次失败'))
-    } finally {
-      setLoading(false)
-    }
-  }, [activityId])
+  const [checkinCode, setCheckinCode] = useState('')
+  const [checkingIn, setCheckingIn] = useState(false)
 
   useEffect(() => {
-    void loadSessions()
-  }, [loadSessions])
-
-  useEffect(() => {
-    if (!activityId) return
-    getActivity(activityId)
-      .then(setActivity)
-      .catch(() => setActivity(null))
-  }, [activityId])
-
-  async function createSession(values: { title: string; method: CheckinMethod }) {
-    setCreating(true)
-    try {
-      const now = new Date()
-      const end = new Date(now.getTime() + 2 * 60 * 60 * 1000)
-      const created = await createCheckinSession({
-        activityId,
-        title: values.title,
-        method: values.method,
-        startAt: now.toISOString(),
-        endAt: end.toISOString(),
-      })
-      setCreateOpen(false)
-      message.success('已创建签到场次')
-      await loadSessions()
-      setActiveKey(created.id)
-    } catch (err) {
-      message.error(getApiErrorMessage(err, '创建签到场次失败'))
-    } finally {
-      setCreating(false)
+    if (sessions && sessions.length > 0 && !activeKey) {
+      setActiveKey(sessions[0].id)
     }
+  }, [sessions, activeKey])
+
+  const active = sessions?.find((s) => s.id === activeKey)
+
+  // ---------- 签到（学生 / 所有人）----------
+  async function handleCheckin() {
+    if (!checkinCode.trim()) {
+      message.warning('请输入签到码')
+      return
+    }
+    // 找到匹配签到码的场次
+    const openSessions = (sessions ?? []).filter((s) => s.status === 'OPEN')
+    if (openSessions.length === 0) {
+      message.warning('当前没有开放的签到场次，请联系活动负责人')
+      return
+    }
+    setCheckingIn(true)
+    let success = false
+    for (const session of openSessions) {
+      try {
+        await performCheckin(session.id, { code: checkinCode.trim() })
+        message.success('签到成功！')
+        setCheckinCode('')
+        refetch()
+        success = true
+        break
+      } catch {
+        // 尝试下一个场次
+      }
+    }
+    if (!success) {
+      message.error('签到失败，请检查签到码是否正确')
+    }
+    setCheckingIn(false)
   }
 
-  const active = sessions.find((s) => s.id === activeKey)
+  // ---------- 管理者创建场次 ----------
+  function handleCreate(values: { title: string; method: CheckinMethod; code?: string }) {
+    createMutation.mutate(
+      {
+        activityId: id ?? '',
+        title: values.title,
+        method: values.method,
+        startAt: new Date().toISOString(),
+        endAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        onSuccess: (session) => {
+          setActiveKey(session.id)
+          setCreateOpen(false)
+          message.success('已创建签到场次')
+        },
+        onError: () => {
+          message.error('创建签到场次失败')
+        },
+      },
+    )
+  }
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <PageHeader
-        title="活动签到"
-        subtitle={activity ? `${activity.title} · 签到场次管理` : '签到场次管理'}
-        extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-            创建签到场次
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <Typography.Title level={3} style={{ margin: 0 }}>活动签到</Typography.Title>
+          <Typography.Text type="secondary">{activity?.title ?? ''}</Typography.Text>
+        </div>
+        <Space>
+          <Input
+            placeholder="输入签到码"
+            value={checkinCode}
+            onChange={(e) => setCheckinCode(e.target.value)}
+            onPressEnter={handleCheckin}
+            style={{ width: 160 }}
+          />
+          <Button type="primary" icon={<LoginOutlined />} loading={checkingIn} onClick={handleCheckin}>
+            签到
           </Button>
-        }
-      />
+          {isOrganizer && (
+            <Button icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+              新建场次
+            </Button>
+          )}
+        </Space>
+      </div>
 
-      {loading ? (
+      {isLoading ? (
+        <Card><Spin style={{ display: 'block', textAlign: 'center', padding: 40 }} /></Card>
+      ) : isError ? (
+        <Card><Empty description="加载签到场次失败" /></Card>
+      ) : !sessions || sessions.length === 0 ? (
         <Card>
-          <Spin />
-        </Card>
-      ) : sessions.length === 0 ? (
-        <Card>
-          <Empty description="尚未创建任何签到场次" />
+          <Empty description={isOrganizer ? '暂未创建签到场次' : '暂无开放的签到场次'}>
+            {isOrganizer && (
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+                创建第一场签到
+              </Button>
+            )}
+          </Empty>
         </Card>
       ) : (
         <>
@@ -124,25 +141,20 @@ export default function CheckinPage() {
               key: s.id,
               label: (
                 <Space>
-                  <Tag color="blue">{METHOD_LABEL[s.method]}</Tag>
+                  <Tag color={s.status === 'OPEN' ? 'green' : 'default'}>{METHOD_LABEL[s.method]}</Tag>
                   {s.title}
                 </Space>
               ),
             }))}
           />
-          {active && <SessionPanel session={active} onChanged={loadSessions} />}
+          {active && <SessionPanel session={active} />}
         </>
       )}
 
-      <Modal
-        title="创建签到场次"
-        open={createOpen}
-        onCancel={() => setCreateOpen(false)}
-        footer={null}
-        destroyOnHidden
-      >
-        <Form layout="vertical" onFinish={createSession} initialValues={{ method: 'CODE' }}>
-          <Form.Item name="title" label="场次名称" rules={[{ required: true, message: '请输入场次名称' }]}>
+      {/* ---------- 创建弹窗 ---------- */}
+      <Modal title="创建签到场次" open={createOpen} onCancel={() => setCreateOpen(false)} footer={null}>
+        <Form layout="vertical" onFinish={handleCreate} initialValues={{ method: 'CODE' }}>
+          <Form.Item name="title" label="场次名称" rules={[{ required: true }]}>
             <Input placeholder="如 Day 1 上午签到" />
           </Form.Item>
           <Form.Item name="method" label="签到方式" rules={[{ required: true }]}>
@@ -154,43 +166,24 @@ export default function CheckinPage() {
               ]}
             />
           </Form.Item>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            签到码 / 二维码由系统自动生成，创建后可在场次面板查看。
-          </Typography.Text>
-          <div style={{ marginTop: 16 }}>
-            <Button type="primary" htmlType="submit" loading={creating}>
-              确定创建
-            </Button>
-          </div>
+          <Form.Item name="code" label="签到码（签到码方式需要）" rules={[{ pattern: /^\d{4,8}$/, message: '4-8 位数字' }]}>
+            <Input placeholder="自动生成或手动输入" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" loading={createMutation.isPending}>确定创建</Button>
         </Form>
       </Modal>
     </Space>
   )
 }
 
-function SessionPanel({ session, onChanged }: { session: CheckinSessionDto; onChanged: () => Promise<void> | void }) {
-  const [records, setRecords] = useState<CheckinRecordDto[]>([])
-  const [recordsLoading, setRecordsLoading] = useState(true)
+function SessionPanel({ session }: { session: CheckinSessionDto }) {
+  const user = useAuthStore((s) => s.user)
+  const isOrganizer = hasRole(user, 'ORGANIZER') || hasRole(user, 'SYS_ADMIN')
+  const { data: records, isLoading: recordsLoading, refetch } = useCheckinRecords(session.id)
   const [toggling, setToggling] = useState(false)
-  const [manualOpen, setManualOpen] = useState(false)
-  const [manualSubmitting, setManualSubmitting] = useState(false)
+  const rate = Math.round((session.signedCount / Math.max(session.totalCount, 1)) * 100)
 
-  const loadRecords = useCallback(async () => {
-    setRecordsLoading(true)
-    try {
-      setRecords(await listCheckinRecords(session.id))
-    } catch (err) {
-      message.error(getApiErrorMessage(err, '加载签到记录失败'))
-    } finally {
-      setRecordsLoading(false)
-    }
-  }, [session.id])
-
-  useEffect(() => {
-    void loadRecords()
-  }, [loadRecords])
-
-  async function toggleStatus() {
+  async function handleToggle() {
     setToggling(true)
     try {
       if (session.status === 'OPEN') {
@@ -200,144 +193,70 @@ function SessionPanel({ session, onChanged }: { session: CheckinSessionDto; onCh
         await openCheckinSession(session.id)
         message.success('已开启签到')
       }
-      await onChanged()
-    } catch (err) {
-      message.error(getApiErrorMessage(err, '操作失败，请稍后再试'))
+      refetch()
+    } catch {
+      message.error('操作失败')
     } finally {
       setToggling(false)
     }
   }
 
-  async function submitManual(values: { userId: string }) {
-    setManualSubmitting(true)
-    try {
-      await manualCheckin(session.id, { userId: values.userId })
-      setManualOpen(false)
-      message.success('已补签')
-      await Promise.all([loadRecords(), onChanged()])
-    } catch (err) {
-      message.error(getApiErrorMessage(err, '补签失败'))
-    } finally {
-      setManualSubmitting(false)
-    }
-  }
-
-  const rate = Math.round((session.signedCount / Math.max(session.totalCount, 1)) * 100)
-  const statusMeta = STATUS_LABEL[session.status]
-
   return (
     <Row gutter={16}>
       <Col xs={24} lg={10}>
-        <Card
-          title={
-            <Space>
-              {`${session.title} · ${METHOD_LABEL[session.method]}`}
-              <Tag color={statusMeta.color}>{statusMeta.text}</Tag>
-            </Space>
-          }
-          extra={
-            <Space>
-              <Button size="small" onClick={() => setManualOpen(true)}>
-                手动补签
-              </Button>
-              <Button
-                size="small"
-                type={session.status === 'OPEN' ? 'default' : 'primary'}
-                danger={session.status === 'OPEN'}
-                loading={toggling}
-                onClick={toggleStatus}
-              >
-                {session.status === 'OPEN' ? '关闭签到' : '开启签到'}
-              </Button>
-            </Space>
-          }
-        >
-          {session.method === 'CODE' && session.code && (
+        <Card title={`${session.title} · ${METHOD_LABEL[session.method]}`}>
+          {session.method === 'CODE' && session.code && isOrganizer && (
             <Alert
-              type="success"
-              showIcon
-              style={{ marginBottom: 12 }}
-              message="签到码"
-              description={
-                <Typography.Title level={2} style={{ margin: 0, letterSpacing: 6 }}>
-                  {session.code}
-                </Typography.Title>
-              }
+              type="success" showIcon style={{ marginBottom: 12 }}
+              message="签到码（仅组织者可见）"
+              description={<Typography.Title level={2} style={{ margin: 0, letterSpacing: 6 }}>{session.code}</Typography.Title>}
             />
           )}
           {session.method === 'QRCODE' && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ textAlign: 'center', padding: 20 }}>
               <QrcodeOutlined style={{ fontSize: 160, color: '#1677ff' }} />
-              <Typography.Text type="secondary" style={{ marginLeft: 16 }}>
-                请使用 App 扫描二维码签到
-              </Typography.Text>
             </div>
           )}
           <Space size={32} style={{ marginTop: 16 }}>
             <Statistic title="已签到" value={session.signedCount} suffix={`/ ${session.totalCount}`} />
             <Statistic title="签到率" value={rate} suffix="%" />
+            <Tag color={session.status === 'OPEN' ? 'green' : 'red'}>
+              {session.status === 'OPEN' ? '开放中' : session.status === 'CLOSED' ? '已关闭' : '未开启'}
+            </Tag>
           </Space>
+          {isOrganizer && session.status !== 'CLOSED' && (
+            <Button
+              type={session.status === 'OPEN' ? 'default' : 'primary'}
+              danger={session.status === 'OPEN'}
+              loading={toggling}
+              onClick={handleToggle}
+              style={{ marginTop: 12 }}
+              block
+            >
+              {session.status === 'OPEN' ? '关闭签到' : '开启签到'}
+            </Button>
+          )}
         </Card>
       </Col>
-
       <Col xs={24} lg={14}>
-        <Card title="签到记录" extra={<Button size="small" onClick={loadRecords}>刷新</Button>}>
-          <Table
-            size="small"
-            rowKey="id"
-            loading={recordsLoading}
-            pagination={{ pageSize: 6 }}
-            dataSource={records}
-            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无签到记录" /> }}
+        <Card title="签到记录">
+          <Table<CheckinRecordDto>
+            size="small" rowKey="id" pagination={{ pageSize: 6 }}
+            dataSource={records ?? []} loading={recordsLoading}
+            locale={{ emptyText: '暂无签到记录' }}
             columns={[
-              { title: '姓名', dataIndex: 'realName', render: (v: string | null) => v ?? '—' },
+              { title: '姓名', dataIndex: 'realName', render: (v: string | null) => v ?? '——' },
+              { title: '签到时间', dataIndex: 'checkedInAt' },
               {
-                title: '签到方式',
-                dataIndex: 'method',
-                render: (m: CheckinMethod) => <Tag color="blue">{METHOD_LABEL[m]}</Tag>,
-              },
-              {
-                title: '签到时间',
-                dataIndex: 'checkedInAt',
-                render: (v: string) => new Date(v).toLocaleString('zh-CN'),
-              },
-              {
-                title: '状态',
-                dataIndex: 'status',
-                render: (s: CheckinRecordDto['status']) =>
-                  s === 'LATE' ? (
-                    <Tag color="orange">迟到</Tag>
-                  ) : (
-                    <span>
-                      <CheckCircleTwoTone twoToneColor="#52c41a" /> 已签到
-                    </span>
-                  ),
+                title: '状态', dataIndex: 'status',
+                render: (status: string) => (
+                  <span><CheckCircleTwoTone twoToneColor="#52c41a" /> {status === 'CHECKED_IN' ? '已签到' : '迟到'}</span>
+                ),
               },
             ]}
           />
         </Card>
       </Col>
-
-      <Modal
-        title="手动补签"
-        open={manualOpen}
-        onCancel={() => setManualOpen(false)}
-        footer={null}
-        destroyOnHidden
-      >
-        <Form layout="vertical" onFinish={submitManual}>
-          <Form.Item
-            name="userId"
-            label="用户 ID"
-            rules={[{ required: true, message: '请输入待补签用户的 ID' }]}
-          >
-            <Input placeholder="输入参与者用户 ID（UUID）" />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" loading={manualSubmitting}>
-            确认补签
-          </Button>
-        </Form>
-      </Modal>
     </Row>
   )
 }

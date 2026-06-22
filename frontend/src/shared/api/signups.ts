@@ -22,11 +22,12 @@ export async function createSignup(
 
 /** 8.2 我的报名记录 */
 export async function listMySignups(params?: { page?: number; pageSize?: number }) {
-  const res = await apiClient.get<ApiSuccess<Paginated<SignupDto>>>(
+  const res = await apiClient.get<{ data: SignupDto[]; meta: { total: number; page: number; pageSize: number } }>(
     '/signups/me',
     { params }
   )
-  return res.data.data
+  const { data: items, meta } = res.data
+  return { items, total: meta.total, page: meta.page, pageSize: meta.pageSize } as Paginated<SignupDto>
 }
 
 /** 8.3 取消报名 */
@@ -42,11 +43,12 @@ export async function listSignupsByRecruitment(
   recruitmentId: string,
   params?: { status?: string; page?: number; pageSize?: number }
 ) {
-  const res = await apiClient.get<ApiSuccess<Paginated<SignupDto>>>(
+  const res = await apiClient.get<{ data: SignupDto[]; meta: { total: number; page: number; pageSize: number } }>(
     `/recruitments/${recruitmentId}/signups`,
     { params }
   )
-  return res.data.data
+  const { data: items, meta } = res.data
+  return { items, total: meta.total, page: meta.page, pageSize: meta.pageSize } as Paginated<SignupDto>
 }
 
 /** 8.5 报名详情 */

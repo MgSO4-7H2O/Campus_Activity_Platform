@@ -2,33 +2,12 @@ import { CheckOutlined, CloseOutlined, RollbackOutlined } from '@ant-design/icon
 import {
   Button, Card, Col, Descriptions, Divider, Empty, Input, Modal, Row, Space, Spin, Steps, Tag, Timeline, Typography, message,
 } from 'antd'
-import { useCallback, useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import PageHeader from '../../shared/components/PageHeader'
-import { getReviewerApplication, listApprovalRecords, reviewActivityApplication } from '../../shared/api/activity-applications'
-import { getApiErrorMessage } from '../../shared/api/error'
-import type {
-  ActivityApplicationDto,
-  ActivityApplicationStatus,
-  ApprovalDecision,
-  ApprovalRecordDto,
-} from '../../shared/api/dto'
-
-const APP_STATUS_META: Record<ActivityApplicationStatus, { text: string; color: string }> = {
-  DRAFT: { text: '草稿', color: 'default' },
-  SUBMITTED: { text: '已提交', color: 'blue' },
-  APPROVING: { text: '审核中', color: 'processing' },
-  NEED_MORE: { text: '待补材料', color: 'orange' },
-  REJECTED: { text: '已驳回', color: 'red' },
-  APPROVED: { text: '已通过', color: 'green' },
-  ARCHIVED: { text: '已归档', color: 'gray' },
-}
-
-function AppStatusTag({ status }: { status: ActivityApplicationStatus }) {
-  const meta = APP_STATUS_META[status]
-  return <Tag color={meta.color}>{meta.text}</Tag>
-}
+import { ApplicationStatusTag } from '../../shared/components/StatusTag'
+import { useApprovalRecords, useReviewApplication, useReviewerApplication } from '../../shared/hooks/useApprovals'
+import type { ApplicationAttachmentDto, ApprovalDecision, ApprovalRecordDto } from '../../shared/api/dto'
 
 const DECISION_LABEL: Record<ApprovalDecision, string> = {
   APPROVE: '通过',
@@ -36,49 +15,15 @@ const DECISION_LABEL: Record<ApprovalDecision, string> = {
   NEED_MORE: '要求补材料',
 }
 
-const DECISION_COLOR: Record<ApprovalDecision, string> = {
-  APPROVE: 'green',
-  REJECT: 'red',
-  NEED_MORE: 'orange',
-}
-
-function formatSize(bytes: number) {
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${bytes} B`
-}
-
 export default function ReviewerDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(true)
-  const [application, setApplication] = useState<ActivityApplicationDto | null>(null)
-  const [records, setRecords] = useState<ApprovalRecordDto[]>([])
   const [comment, setComment] = useState('')
   const [decisionToConfirm, setDecisionToConfirm] = useState<ApprovalDecision | null>(null)
-  const [submitting, setSubmitting] = useState<ApprovalDecision | null>(null)
 
-  const load = useCallback(async () => {
-    if (!id) return
-    setLoading(true)
-    try {
-      const app = await getReviewerApplication(id)
-      setApplication(app)
-      try {
-        setRecords(await listApprovalRecords(id))
-      } catch {
-        setRecords([])
-      }
-    } catch {
-      setApplication(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [id])
-
-  useEffect(() => {
-    void load()
-  }, [load])
+  const { data: application, isLoading, refetch } = useReviewerApplication(id)
+  const { data: records = [] } = useApprovalRecords(id)
+  const reviewMutation = useReviewApplication()
 
   function confirmDecision(decision: ApprovalDecision) {
     if (!comment.trim()) {
@@ -90,24 +35,47 @@ export default function ReviewerDetailPage() {
 
   async function submitDecision() {
     if (!decisionToConfirm || !id) return
-    const decision = decisionToConfirm
-    setSubmitting(decision)
-    try {
-      await reviewActivityApplication(id, { decision, comment })
-      message.success(`已${DECISION_LABEL[decision]}`)
-      setDecisionToConfirm(null)
-      navigate('/approvals')
-    } catch (err) {
-      message.error(getApiErrorMessage(err, '提交审核失败'))
-    } finally {
-      setSubmitting(null)
-    }
+
+    await reviewMutation.mutateAsync(
+      { id, body: { decision: decisionToConfirm, comment } },
+      {
+        onSuccess: () => {
+          setDecisionToConfirm(null)
+          setComment('')
+          message.success(`已${DECISION_LABEL[decisionToConfirm]}`)
+          refetch()
+        },
+        onError: (error) => {
+          message.error(`审核失败：${error instanceof Error ? error.message : '未知错误'}`)
+          setDecisionToConfirm(null)
+        },
+      },
+    )
   }
 
-  if (loading) {
+  const reviewSteps = useMemo(() => {
+    const maxLevel = application?.currentApprovalLevel ?? 1
+    const items = []
+    for (let i = 0; i < maxLevel; i++) {
+      const record = records.find((r: ApprovalRecordDto) => r.level === i + 1)
+      items.push({
+        title: `第 ${i + 1} 级审核`,
+        description: record?.reviewerName ?? '—',
+        status: record
+          ? record.decision === 'APPROVE'
+            ? ('finish' as const)
+            : ('error' as const)
+          : ('process' as const),
+      })
+    }
+    items.push({ title: '通过 / 归档', description: '', status: 'wait' as const })
+    return items
+  }, [application, records])
+
+  if (isLoading) {
     return (
       <Card>
-        <Spin />
+        <Spin style={{ display: 'block', textAlign: 'center', padding: 48 }} />
       </Card>
     )
   }
@@ -122,25 +90,20 @@ export default function ReviewerDetailPage() {
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <PageHeader
-        title="审核详情"
-        subtitle={`${application.organizationName} · ${application.title}`}
-        extra={
-          <>
-            <Button onClick={() => navigate('/approvals')}>返回待办</Button>
-            <AppStatusTag status={application.status} />
-          </>
-        }
-      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <Typography.Title level={3} style={{ margin: 0 }}>审核详情</Typography.Title>
+          <Typography.Text type="secondary">
+            {application.organizationName} · {application.title}
+          </Typography.Text>
+        </div>
+        <Space>
+          <Button onClick={() => navigate('/approvals')}>返回待办</Button>
+          <ApplicationStatusTag status={application.status} />
+        </Space>
+      </div>
 
-      <Steps
-        current={records.length}
-        items={[
-          { title: '一级审核', description: records[0]?.reviewerName ?? '—' },
-          { title: '二级审核', description: records[1]?.reviewerName ?? '—' },
-          { title: '通过 / 归档' },
-        ]}
-      />
+      <Steps current={records.length} items={reviewSteps} />
 
       <Row gutter={16}>
         <Col xs={24} lg={16}>
@@ -155,22 +118,25 @@ export default function ReviewerDetailPage() {
               <Descriptions.Item label="预计结束">{application.expectedEnd}</Descriptions.Item>
               <Descriptions.Item label="规模">{application.expectedScale} 人</Descriptions.Item>
               <Descriptions.Item label="预算">{application.budget} 元</Descriptions.Item>
+              <Descriptions.Item label="地点" span={2}>
+                {application.location ?? '—'}
+              </Descriptions.Item>
               <Descriptions.Item label="活动简介" span={2}>
                 {application.brief}
               </Descriptions.Item>
             </Descriptions>
 
-            <Divider orientation="left">附件材料</Divider>
-            {application.attachments.length > 0 ? (
-              <Space direction="vertical" style={{ width: '100%' }}>
-                {application.attachments.map((f) => (
-                  <Tag key={f.id} color="blue" style={{ padding: '4px 10px' }}>
-                    📎 {f.fileName} · {formatSize(f.fileSize)}
-                  </Tag>
-                ))}
-              </Space>
-            ) : (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="无附件" />
+            {application.attachments.length > 0 && (
+              <>
+                <Divider orientation="left">附件材料</Divider>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  {application.attachments.map((f: ApplicationAttachmentDto) => (
+                    <Tag key={f.id} color="blue" style={{ padding: '4px 10px' }}>
+                      📎 {f.fileName} · {(f.fileSize / 1024).toFixed(1)} KB
+                    </Tag>
+                  ))}
+                </Space>
+              </>
             )}
           </Card>
 
@@ -185,14 +151,14 @@ export default function ReviewerDetailPage() {
               <Button
                 type="primary"
                 icon={<CheckOutlined />}
-                loading={submitting === 'APPROVE'}
+                loading={reviewMutation.isPending && decisionToConfirm === 'APPROVE'}
                 onClick={() => confirmDecision('APPROVE')}
               >
                 通过
               </Button>
               <Button
                 icon={<RollbackOutlined />}
-                loading={submitting === 'NEED_MORE'}
+                loading={reviewMutation.isPending && decisionToConfirm === 'NEED_MORE'}
                 onClick={() => confirmDecision('NEED_MORE')}
               >
                 要求补材料
@@ -200,7 +166,7 @@ export default function ReviewerDetailPage() {
               <Button
                 danger
                 icon={<CloseOutlined />}
-                loading={submitting === 'REJECT'}
+                loading={reviewMutation.isPending && decisionToConfirm === 'REJECT'}
                 onClick={() => confirmDecision('REJECT')}
               >
                 驳回
@@ -213,19 +179,21 @@ export default function ReviewerDetailPage() {
           <Card title="审核历史">
             {records.length > 0 ? (
               <Timeline
-                items={records.map((h) => ({
-                  color: DECISION_COLOR[h.decision],
+                items={records.map((h: ApprovalRecordDto) => ({
+                  color: h.decision === 'APPROVE' ? 'green' : h.decision === 'REJECT' ? 'red' : 'orange',
                   children: (
                     <div>
                       <Typography.Text strong>
                         第 {h.level} 级 · {h.reviewerName ?? '—'}
                       </Typography.Text>
                       <Typography.Paragraph style={{ margin: '4px 0' }}>
-                        <Tag>{DECISION_LABEL[h.decision]}</Tag>
+                        <Tag color={h.decision === 'APPROVE' ? 'green' : h.decision === 'REJECT' ? 'red' : 'orange'}>
+                          {DECISION_LABEL[h.decision]}
+                        </Tag>
                         {h.comment}
                       </Typography.Paragraph>
                       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                        {new Date(h.decidedAt).toLocaleString('zh-CN')}
+                        {h.decidedAt}
                       </Typography.Text>
                     </div>
                   ),
@@ -241,7 +209,7 @@ export default function ReviewerDetailPage() {
       <Modal
         title={decisionToConfirm ? `确认${DECISION_LABEL[decisionToConfirm]}该申请？` : ''}
         open={!!decisionToConfirm}
-        confirmLoading={!!submitting}
+        confirmLoading={reviewMutation.isPending}
         onOk={submitDecision}
         onCancel={() => setDecisionToConfirm(null)}
       >

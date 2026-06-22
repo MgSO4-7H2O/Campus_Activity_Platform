@@ -1,15 +1,13 @@
 import { Card, Empty, List, Space, Spin, Tabs, Tag, Typography } from 'antd'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import PageHeader from '../../shared/components/PageHeader'
-import { listMyPendingTasks } from '../../shared/api/pending-tasks'
+import { useMyPendingTasks } from '../../shared/hooks/usePendingTasks'
 import type {
   PendingTaskDto,
   PendingTaskResourceType,
   PendingTaskStatus,
 } from '../../shared/api/dto'
-import { fallbackPendingTasks } from '../../shared/mock/data'
 
 const RES_LABEL: Record<PendingTaskResourceType, string> = {
   ROLE_APPLICATION: '权限申请',
@@ -26,61 +24,33 @@ const RES_COLOR: Record<PendingTaskResourceType, string> = {
 }
 
 export default function TasksPage() {
-  const [loading, setLoading] = useState(true)
-  const [tasks, setTasks] = useState<PendingTaskDto[]>([])
-  const [usingFallback, setUsingFallback] = useState(false)
   const [filter, setFilter] = useState<PendingTaskStatus>('PENDING')
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    listMyPendingTasks()
-      .then((data) => {
-        if (!cancelled) setTasks(data)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setTasks(fallbackPendingTasks)
-          setUsingFallback(true)
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const { data: tasks = [], isLoading } = useMyPendingTasks()
 
   const filtered = useMemo(
-    () => tasks.filter((t) => t.status === filter),
-    [tasks, filter]
+    () => tasks.filter((t: PendingTaskDto) => t.status === filter),
+    [tasks, filter],
   )
 
   const counts = useMemo(
     () => ({
-      PENDING: tasks.filter((t) => t.status === 'PENDING').length,
-      PROCESSED: tasks.filter((t) => t.status === 'PROCESSED').length,
-      CANCELLED: tasks.filter((t) => t.status === 'CANCELLED').length,
+      PENDING: tasks.filter((t: PendingTaskDto) => t.status === 'PENDING').length,
+      PROCESSED: tasks.filter((t: PendingTaskDto) => t.status === 'PROCESSED').length,
+      CANCELLED: tasks.filter((t: PendingTaskDto) => t.status === 'CANCELLED').length,
     }),
-    [tasks]
+    [tasks],
   )
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <PageHeader
-        title="我的待办"
-        subtitle="所有审核、待补材料、待签到等任务统一在此查看，点击跳转到对应业务页面。"
-      />
-      <Card
-        extra={
-          usingFallback ? (
-            <Typography.Text type="warning" style={{ fontSize: 12 }}>
-              当前为 Mock 数据，待后端 <code>/pending-tasks/me</code> 上线后将自动切换
-            </Typography.Text>
-          ) : null
-        }
-      >
+      <div>
+        <Typography.Title level={3} style={{ margin: 0 }}>我的待办</Typography.Title>
+        <Typography.Text type="secondary">
+          所有审核、待补材料、待签到等任务统一在此查看，点击跳转到对应业务页面。
+        </Typography.Text>
+      </div>
+
+      <Card>
         <Tabs
           activeKey={filter}
           onChange={(k) => setFilter(k as PendingTaskStatus)}
@@ -90,8 +60,8 @@ export default function TasksPage() {
             { key: 'CANCELLED', label: `已取消 (${counts.CANCELLED})` },
           ]}
         />
-        {loading ? (
-          <Spin />
+        {isLoading ? (
+          <Spin style={{ display: 'block', textAlign: 'center', padding: 24 }} />
         ) : filtered.length === 0 ? (
           <Empty description="暂无待办" />
         ) : (

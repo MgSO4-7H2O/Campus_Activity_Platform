@@ -1,26 +1,32 @@
 import { InboxOutlined } from '@ant-design/icons'
-import { Alert, Button, Card, Col, Form, Input, Row, Space, Tag, Typography, Upload, message } from 'antd'
-import { useState } from 'react'
+import { Alert, Button, Card, Col, Form, Input, Row, Space, Spin, Tag, Typography, Upload, message } from 'antd'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import PageHeader from '../../shared/components/PageHeader'
-import { activities, recruitments } from '../../shared/mock/data'
 import { useAuthStore } from '../../shared/auth/store'
+import { useActivity } from '../../shared/hooks/useActivities'
+import { useCreateSignup, useRecruitments } from '../../shared/hooks/useRecruitments'
 
 export default function ActivityRegisterPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const me = useAuthStore((s) => s.user)
   const [form] = Form.useForm()
-  const [submitting, setSubmitting] = useState(false)
 
-  const activity = activities.find((a) => a.id === id)
-  const recruitment = id ? recruitments[id] : undefined
+  const { data: activity, isLoading: activityLoading } = useActivity(id)
+  const { data: recruitmentsData, isLoading: recruitmentsLoading } = useRecruitments()
+  const { mutateAsync: createSignup, isPending: isSigningUp } = useCreateSignup()
+
+  const recruitment = recruitmentsData?.items?.find((r) => r.activityId === id)
+
+  if (activityLoading || recruitmentsLoading) {
+    return <Spin />
+  }
 
   if (!activity) {
     return <Card>未找到活动</Card>
   }
-  if (!recruitment || recruitment.status !== 'published') {
+  if (!recruitment || recruitment.status !== 'PUBLISHED') {
     return (
       <Card>
         <Alert showIcon type="warning" message="该活动当前未开放报名" />
@@ -28,14 +34,17 @@ export default function ActivityRegisterPage() {
     )
   }
 
-  function onSubmit(values: { note?: string }) {
-    setSubmitting(true)
-    setTimeout(() => {
-      setSubmitting(false)
+  async function onSubmit(values: { note?: string }) {
+    try {
+      await createSignup({
+        recruitmentId: recruitment!.id,
+        body: { remark: values.note },
+      })
       message.success('报名已提交，等待负责人审核')
       navigate('/my/registrations')
-    }, 350)
-    return values
+    } catch {
+      message.error('报名提交失败')
+    }
   }
 
   return (
@@ -58,9 +67,9 @@ export default function ActivityRegisterPage() {
               message="系统会按招募规则自动校验"
               description={
                 <Space wrap>
-                  <Tag>用户类型：{recruitment.userTypes.join(' / ')}</Tag>
-                  {recruitment.gradeLimit && <Tag>年级：{recruitment.gradeLimit.join(' / ')}</Tag>}
-                  {recruitment.majorLimit && <Tag>专业：{recruitment.majorLimit.join(' / ')}</Tag>}
+                  <Tag>用户类型：{recruitment.allowedUserTypes.join(' / ')}</Tag>
+                  {recruitment.allowedGrades.length > 0 && <Tag>年级：{recruitment.allowedGrades.join(' / ')}</Tag>}
+                  {recruitment.allowedMajors.length > 0 && <Tag>专业：{recruitment.allowedMajors.join(' / ')}</Tag>}
                   <Tag>窗口：{recruitment.registrationStart} ~ {recruitment.registrationEnd}</Tag>
                 </Space>
               }
@@ -76,7 +85,7 @@ export default function ActivityRegisterPage() {
               <Form.Item label="联系电话">
                 <Input value={me?.phone ?? ''} disabled placeholder="请到 /me/edit 完善" />
               </Form.Item>
-              {recruitment.needMaterial && (
+              {recruitment.requiresAttachment && (
                 <Form.Item label="报名材料" required>
                   <Upload.Dragger beforeUpload={() => false} maxCount={1}>
                     <p className="ant-upload-drag-icon">
@@ -89,7 +98,7 @@ export default function ActivityRegisterPage() {
               <Form.Item name="note" label="备注（可选）">
                 <Input.TextArea rows={3} placeholder="补充说明，便于负责人判断" />
               </Form.Item>
-              <Button type="primary" htmlType="submit" loading={submitting} size="large">
+              <Button type="primary" htmlType="submit" loading={isSigningUp} size="large">
                 提交报名
               </Button>
             </Form>
@@ -109,7 +118,7 @@ export default function ActivityRegisterPage() {
               📍 {activity.location}
             </Typography.Text>
             <Typography.Text type="secondary" style={{ display: 'block' }}>
-              👥 {activity.registered}/{activity.capacity} 人
+              👥 {activity.registeredCount}/{activity.capacity} 人
             </Typography.Text>
           </Card>
         </Col>

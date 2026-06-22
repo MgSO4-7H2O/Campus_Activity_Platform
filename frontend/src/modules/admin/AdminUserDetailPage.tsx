@@ -1,35 +1,23 @@
 import { ArrowLeftOutlined } from '@ant-design/icons'
-import { Button, Card, Col, Descriptions, Empty, Row, Space, Spin, Tag, Typography } from 'antd'
-import { useEffect, useState } from 'react'
+import { Button, Card, Col, Descriptions, Empty, Row, Space, Spin, Tag, Typography, message } from 'antd'
+import { useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import PageHeader from '../../shared/components/PageHeader'
-import { getAdminUser } from '../../shared/api/admin'
-import type { AdminUserDto } from '../../shared/api/dto'
-import { fallbackAdminUsers } from '../../shared/mock/data'
+import { useAdminUser } from '../../shared/hooks/useAdmin'
 import { ROLE_LABELS } from '../../shared/auth/store'
 
 export default function AdminUserDetailPage() {
   const { id = '' } = useParams()
-  const [loading, setLoading] = useState(true)
-  const [data, setData] = useState<AdminUserDto | null>(null)
+  const { data, isLoading, error } = useAdminUser(id)
 
   useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    getAdminUser(id)
-      .then((d) => !cancelled && setData(d))
-      .catch(() => {
-        const fb = fallbackAdminUsers.find((u) => u.id === id) ?? null
-        if (!cancelled) setData(fb)
-      })
-      .finally(() => !cancelled && setLoading(false))
-    return () => {
-      cancelled = true
+    if (error) {
+      message.error('加载用户详情失败')
     }
-  }, [id])
+  }, [error])
 
-  if (loading) return <Spin />
+  if (isLoading) return <Spin />
   if (!data) return <Empty description="未找到该用户" />
 
   return (

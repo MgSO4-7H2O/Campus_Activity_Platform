@@ -15,11 +15,12 @@ export async function listAnnouncements(params?: {
   page?: number
   pageSize?: number
 }) {
-  const res = await apiClient.get<ApiSuccess<Paginated<AnnouncementDto>>>(
+  const res = await apiClient.get<{ data: AnnouncementDto[]; meta: { total: number; page: number; pageSize: number } }>(
     '/announcements',
     { params }
   )
-  return res.data.data
+  const { data: items, meta } = res.data
+  return { items, total: meta.total, page: meta.page, pageSize: meta.pageSize } as Paginated<AnnouncementDto>
 }
 
 /** 11.2 公告详情 */

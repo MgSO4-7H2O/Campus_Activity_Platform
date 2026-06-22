@@ -27,11 +27,12 @@ export async function listMyActivityApplications(params?: {
   page?: number
   pageSize?: number
 }) {
-  const res = await apiClient.get<ApiSuccess<Paginated<ActivityApplicationDto>>>(
+  const res = await apiClient.get<{ data: ActivityApplicationDto[]; meta: { total: number; page: number; pageSize: number } }>(
     '/activity-applications/me',
     { params }
   )
-  return res.data.data
+  const { data: items, meta } = res.data
+  return { items, total: meta.total, page: meta.page, pageSize: meta.pageSize } as Paginated<ActivityApplicationDto>
 }
 
 export async function getActivityApplication(id: string) {

@@ -36,7 +36,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://campus:campus@localhost:5432/campus_test?schema=public
       REDIS_URL: redis://localhost:6379
-      JWT_SECRET: ci-jwt-secret
+      JWT_SECRET: ci-jwt-secret-ci-only-do-not-use-in-prod-0123456789
       PORT: 3100
 
     steps:
@@ -77,3 +77,4 @@ jobs:
 
       - name: Run real backend E2E
         run: pnpm --filter @campus-activity/web test:e2e:real
+

@@ -1,12 +1,11 @@
 import { ApartmentOutlined } from '@ant-design/icons'
-import { Card, Empty, Space, Spin, Tag, Tree, Typography } from 'antd'
+import { Card, Empty, Space, Spin, Tag, Tree, Typography, message } from 'antd'
 import type { DataNode } from 'antd/es/tree'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 import PageHeader from '../../shared/components/PageHeader'
-import { getOrganizationTree } from '../../shared/api/organizations'
+import { useOrgTree } from '../../shared/hooks/useOrganizations'
 import type { OrganizationNode, OrganizationType } from '../../shared/api/dto'
-import { fallbackOrgTree } from '../../shared/mock/data'
 
 const TYPE_LABEL: Record<OrganizationType, string> = {
   club: '社团',
@@ -37,29 +36,13 @@ function toTreeData(nodes: OrganizationNode[]): DataNode[] {
 }
 
 export default function OrganizationsPage() {
-  const [loading, setLoading] = useState(true)
-  const [data, setData] = useState<OrganizationNode[]>([])
-  const [usingFallback, setUsingFallback] = useState(false)
+  const { data, isLoading, error } = useOrgTree()
 
   useEffect(() => {
-    let cancelled = false
-    getOrganizationTree()
-      .then((tree) => {
-        if (!cancelled) setData(tree)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setData(fallbackOrgTree)
-          setUsingFallback(true)
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
+    if (error) {
+      message.error('加载组织架构失败')
     }
-  }, [])
+  }, [error])
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -67,18 +50,10 @@ export default function OrganizationsPage() {
         title="组织架构"
         subtitle="活动立项需绑定组织；审核人按组织匹配。组织树由系统管理员维护。"
       />
-      <Card
-        extra={
-          usingFallback ? (
-            <Typography.Text type="warning" style={{ fontSize: 12 }}>
-              当前显示的是 Mock 数据，待后端 <code>/organizations/tree</code> 上线后将自动切换
-            </Typography.Text>
-          ) : null
-        }
-      >
-        {loading ? (
+      <Card>
+        {isLoading ? (
           <Spin />
-        ) : data.length > 0 ? (
+        ) : data && data.length > 0 ? (
           <Tree
             showLine
             defaultExpandAll

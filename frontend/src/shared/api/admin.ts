@@ -25,11 +25,12 @@ export async function listAdminUsers(params?: {
   page?: number
   pageSize?: number
 }) {
-  const res = await apiClient.get<ApiSuccess<Paginated<AdminUserDto>>>(
+  const res = await apiClient.get<{ data: AdminUserDto[]; meta: { total: number; page: number; pageSize: number } }>(
     '/admin/users',
     { params }
   )
-  return res.data.data
+  const { data: items, meta } = res.data
+  return { items, total: meta.total, page: meta.page, pageSize: meta.pageSize } as Paginated<AdminUserDto>
 }
 
 /** 13.3 用户详情 */
@@ -61,9 +62,10 @@ export async function listSystemLogs(params?: {
   page?: number
   pageSize?: number
 }) {
-  const res = await apiClient.get<ApiSuccess<Paginated<SystemLogDto>>>(
+  const res = await apiClient.get<{ data: SystemLogDto[]; meta: { total: number; page: number; pageSize: number } }>(
     '/admin/system-logs',
     { params }
   )
-  return res.data.data
+  const { data: items, meta } = res.data
+  return { items, total: meta.total, page: meta.page, pageSize: meta.pageSize } as Paginated<SystemLogDto>
 }

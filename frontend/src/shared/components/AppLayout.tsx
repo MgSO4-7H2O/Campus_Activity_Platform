@@ -21,11 +21,10 @@ import {
 } from '@ant-design/icons'
 import { Avatar, Badge, Button, Dropdown, Layout, Menu, Select, Space, Typography, theme } from 'antd'
 import type { MenuProps } from 'antd'
-import { useMemo } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
-import { notifications } from '../mock/data'
 import { ROLE_LABELS, useAuthStore } from '../auth/store'
+import { useUnreadCount } from '../hooks/useNotifications'
 
 const { Header, Sider, Content } = Layout
 
@@ -115,7 +114,7 @@ export default function AppLayout() {
   const location = useLocation()
   const { user, viewRole, logout, setViewRole } = useAuthStore()
   const isLoggedIn = !!user
-  const unread = useMemo(() => notifications.filter((n) => !n.read).length, [])
+  const { data: unread } = useUnreadCount()
   const { token } = theme.useToken()
 
   const menuItems = buildMenu(viewRole, isLoggedIn)
@@ -198,7 +197,7 @@ export default function AppLayout() {
               </Space>
             )}
             <Link to="/notifications" aria-label="通知">
-              <Badge count={unread} size="small">
+              <Badge count={unread ?? 0} size="small">
                 <BellOutlined style={{ fontSize: 18, color: token.colorTextSecondary }} />
               </Badge>
             </Link>

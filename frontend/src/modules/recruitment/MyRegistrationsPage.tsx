@@ -1,16 +1,41 @@
-import { Button, Card, Empty, Space, Table, Tag } from 'antd'
+import { Button, Card, Empty, message, Space, Spin, Table, Tag } from 'antd'
 import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
 
 import PageHeader from '../../shared/components/PageHeader'
 import { RegistrationStatusTag } from '../../shared/components/StatusTag'
-import { activities, registrations } from '../../shared/mock/data'
+import { useMySignups, useActivities } from '../../shared/hooks'
 
 export default function MyRegistrationsPage() {
-  // 演示用：把所有报名当作"我的"。真实接口将通过 userId 过滤。
-  const data = registrations.map((r) => ({
-    ...r,
-    activity: activities.find((a) => a.id === r.activityId),
+  const { data: signupsData, isLoading: signupsLoading, error: signupsError } = useMySignups()
+  const { data: activitiesData } = useActivities()
+
+  const signups = signupsData?.items ?? []
+  const activities = activitiesData?.items ?? []
+
+  const data = signups.map((s) => ({
+    ...s,
+    activity: activities.find((a) => a.id === s.activityId),
   }))
+
+  useEffect(() => {
+    if (signupsError) {
+      message.error('加载报名记录失败')
+    }
+  }, [signupsError])
+
+  if (signupsLoading) {
+    return (
+      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <PageHeader title="我的报名" subtitle="跟踪你提交的所有报名记录" />
+        <Card>
+          <div style={{ textAlign: 'center', padding: 48 }}>
+            <Spin />
+          </div>
+        </Card>
+      </Space>
+    )
+  }
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -35,7 +60,7 @@ export default function MyRegistrationsPage() {
               },
               {
                 title: '拒绝理由',
-                dataIndex: 'rejectReason',
+                dataIndex: 'decisionComment',
                 render: (v?: string) => (v ? <Tag color="red">{v}</Tag> : '-'),
               },
               {
@@ -46,7 +71,7 @@ export default function MyRegistrationsPage() {
                     <Link to={`/activities/${row.activityId}`}>
                       <Button size="small">查看活动</Button>
                     </Link>
-                    {row.status === 'approved' && (
+                    {row.status === 'APPROVED' && (
                       <Link to={`/activities/${row.activityId}/checkin`}>
                         <Button size="small" type="primary">
                           去签到
